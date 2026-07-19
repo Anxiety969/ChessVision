@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# Virtual environment
+.venv/
+
+# Generated images
+src/screenshot.png
+src/board_color_mask.png
+src/board_crop.png
+src/board_grid.png
+src/board_occupancy.png
+
+# Generated square images
+src/squares/
