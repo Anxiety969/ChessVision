@@ -3,9 +3,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import ImageGrab
 
-
+from vision import capture_screen, create_board_mask, compare_images
 PROJECT_FOLDER = Path(__file__).parent
 
 SCREENSHOT_PATH = PROJECT_FOLDER / "screenshot.png"
@@ -56,43 +55,15 @@ STARTING_PIECES = {
 }
 
 
-def create_board_mask(rgb_image):
-    image_numbers = rgb_image.astype(np.float32)
 
-    light_difference = image_numbers - LIGHT_SQUARE
-    dark_difference = image_numbers - DARK_SQUARE
 
-    light_distance = np.sqrt(
-        np.sum(light_difference ** 2, axis=2)
-    )
-
-    dark_distance = np.sqrt(
-        np.sum(dark_difference ** 2, axis=2)
-    )
-
-    light_mask = np.where(
-        light_distance <= COLOR_TOLERANCE,
-        255,
-        0
-    ).astype(np.uint8)
-
-    dark_mask = np.where(
-        dark_distance <= COLOR_TOLERANCE,
-        255,
-        0
-    ).astype(np.uint8)
-
-    return cv2.bitwise_or(light_mask, dark_mask)
 
 
 def capture_templates():
     status_label.config(text="Capturing templates...")
     window.update_idletasks()
 
-    screenshot = ImageGrab.grab(all_screens=True)
-    screenshot.save(SCREENSHOT_PATH)
-
-    rgb_image = np.array(screenshot)
+    rgb_image = capture_screen()
 
     board_mask = create_board_mask(rgb_image)
 
