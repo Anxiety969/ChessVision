@@ -127,6 +127,7 @@ def capture_templates():
     templates_folder.mkdir(exist_ok=True)
 
     saved_names = set()
+
     for row in range(8):
         for column in range(8):
             square_name = f"{files[column]}{ranks[row]}"
@@ -258,6 +259,7 @@ def analyze_board():
     ranks = "87654321"
 
     print("Ready to scan all 64 squares.")
+    recognized_position = {}
     for row in range(8):
         for column in range(8):
             square_name = f"{files[column]}{ranks[row]}"
@@ -283,7 +285,10 @@ def analyze_board():
             if score < 0.50:
                 print(square_name, "empty", f"{score:.3f}")
             else:
+                recognized_position[square_name] = piece_name
+
                 print(square_name, piece_name, f"{score:.3f}")
+    print(f"Recognized {len(recognized_position)} occupied squares.")
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),
