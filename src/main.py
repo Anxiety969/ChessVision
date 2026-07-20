@@ -25,6 +25,7 @@ from vision import (
     checking_pieces,
     available_captures,
     attacked_pieces,
+    make_move,
 
 )   
 
@@ -379,6 +380,17 @@ def analyze_board():
     print(
         "Black pieces under attack:",
         attacked_pieces(recognized_position, False),
+    )
+    test_position = make_move(
+    recognized_position,
+    "e2",
+    "e4",
+    )
+
+    print(
+        "Test move e2 to e4:",
+        test_position.get("e2"),
+        test_position.get("e4"),
     )   
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),

@@ -392,3 +392,10 @@ def attacked_pieces(recognized_position, white):
             attacked.append((square_name, symbol))
 
     return attacked
+def make_move(recognized_position, from_square, to_square):
+    new_position = recognized_position.copy()
+
+    moving_piece = new_position.pop(from_square)
+    new_position[to_square] = moving_piece
+
+    return new_position
