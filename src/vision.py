@@ -481,3 +481,38 @@ def legal_moves_for_piece(
             legal_moves.append(target_square)
 
     return legal_moves
+def legal_move_details(
+    recognized_position,
+    square_name,
+):
+    symbol = recognized_position.get(square_name)
+
+    if symbol is None:
+        return {
+            "moves": [],
+            "captures": [],
+        }
+
+    moves = []
+    captures = []
+
+    for target_square in legal_moves_for_piece(
+        recognized_position,
+        square_name,
+    ):
+        target_symbol = recognized_position.get(target_square)
+
+        if target_symbol is None:
+            moves.append(target_square)
+        else:
+            captures.append(
+                (
+                    target_square,
+                    target_symbol,
+                )
+            )
+
+    return {
+        "moves": moves,
+        "captures": captures,
+    }
