@@ -316,3 +316,31 @@ def king_in_check(recognized_position, white):
     )
 
     return king_square in opponent_attacks
+def checking_pieces(recognized_position, white):
+    king_symbol = "K" if white else "k"
+    king_square = None
+
+    for square_name, symbol in recognized_position.items():
+        if symbol == king_symbol:
+            king_square = square_name
+            break
+
+    if king_square is None:
+        return []
+
+    attackers = []
+
+    for square_name, symbol in recognized_position.items():
+        if symbol.isupper() == white:
+            continue
+
+        attacks = piece_attacks(
+            square_name,
+            symbol,
+            recognized_position,
+        )
+
+        if king_square in attacks:
+            attackers.append(square_name)
+
+    return attackers

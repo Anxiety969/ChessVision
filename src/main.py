@@ -22,6 +22,7 @@ from vision import (
     piece_attacks,
     color_attacks,
     king_in_check,
+    checking_pieces,
 
 )   
 
@@ -350,6 +351,15 @@ def analyze_board():
         "Black king in check:",
         king_in_check(recognized_position, False),
     )    
+    print(
+    "Checking white king:",
+    checking_pieces(recognized_position, True),
+    )
+
+    print(
+    "Checking black king:",
+    checking_pieces(recognized_position, False),
+    )   
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),
