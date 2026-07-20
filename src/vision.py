@@ -125,3 +125,32 @@ def knight_attacks(square_name):
             )
 
     return attacked_squares
+def king_attacks(square_name):
+    row, column = square_to_coordinates(square_name)
+
+    moves = [
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+    ]
+
+    attacked_squares = []
+
+    for row_change, column_change in moves:
+        target_row = row + row_change
+        target_column = column + column_change
+
+        if 0 <= target_row < 8 and 0 <= target_column < 8:
+            attacked_squares.append(
+                coordinates_to_square(
+                    target_row,
+                    target_column,
+                )
+            )
+
+    return attacked_squares
