@@ -333,7 +333,7 @@ def analyze_board():
 
         protected_squares = color_attacks(
             recognized_position,
-            True,
+            protected_color.get() == "white",
         )
         for chess_square in protected_squares:
             if chess_square in recognized_position:
@@ -616,14 +616,37 @@ status_label = tk.Label(
     justify="center",
 )
 show_protected_squares = tk.BooleanVar(value=False)
-
+protected_color = tk.StringVar(value="white")
 protected_toggle = tk.Checkbutton(
     window,
     text="Show Protected Squares",
     variable=show_protected_squares,
 )
+protected_color_frame = tk.Frame(window)
 
+tk.Radiobutton(
+    protected_color_frame,
+    text="White",
+    variable=protected_color,
+    value="white",
+    command=lambda: (
+    protected_toggle.invoke(),
+    protected_toggle.invoke(),
+) if show_protected_squares.get() else None,
+).pack(side="left")
+
+tk.Radiobutton(
+    protected_color_frame,
+    text="Black",
+    variable=protected_color,
+    value="black",
+    command=lambda: (
+    protected_toggle.invoke(),
+    protected_toggle.invoke(),
+) if show_protected_squares.get() else None,
+).pack(side="left")
 protected_toggle.pack(pady=4)
+protected_color_frame.pack(pady=2)
 status_label.pack(pady=6)
 board_canvas = tk.Canvas(
     window,
