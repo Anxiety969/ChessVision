@@ -417,6 +417,64 @@ def hanging_pieces(recognized_position, white):
             attacked.append((square_name, symbol))
 
     return attacked
+def under_defended_pieces(recognized_position, white):
+    piece_values = {
+        "p": 1,
+        "n": 3,
+        "b": 3,
+        "r": 5,
+        "q": 9,
+    }
+
+    under_defended = []
+
+    for square_name, symbol in recognized_position.items():
+        if symbol.isupper() != white:
+            continue
+
+        if symbol.lower() == "k":
+            continue
+
+        attackers = []
+
+        for attacker_square, attacker_symbol in recognized_position.items():
+            if attacker_symbol.isupper() == white:
+                continue
+
+            attacks = piece_attacks(
+                attacker_square,
+                attacker_symbol,
+                recognized_position,
+            )
+
+            if square_name in attacks:
+                attackers.append(
+                    (
+                        attacker_square,
+                        attacker_symbol,
+                    )
+                )
+
+        if not attackers:
+            continue
+
+        cheapest_attacker = min(
+            piece_values[attacker_symbol.lower()]
+            for _, attacker_symbol in attackers
+        )
+
+        piece_value = piece_values[symbol.lower()]
+
+        if cheapest_attacker < piece_value:
+            under_defended.append(
+                (
+                    square_name,
+                    symbol,
+                    attackers,
+                )
+            )
+
+    return under_defended
 def make_move(recognized_position, from_square, to_square):
     new_position = recognized_position.copy()
 

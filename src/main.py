@@ -27,6 +27,7 @@ from vision import (
     available_captures,
     attacked_pieces,
     hanging_pieces,
+    under_defended_pieces,
     make_move,
     move_is_legal,
     pinned_pieces,
@@ -557,6 +558,15 @@ def analyze_board():
         281,
         213,
     ),
+)
+    print(
+    "White under-defended pieces:",
+    under_defended_pieces(recognized_position, True),
+)
+
+    print(
+    "Black under-defended pieces:",
+    under_defended_pieces(recognized_position, False),
 )
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
