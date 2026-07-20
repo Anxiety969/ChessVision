@@ -127,7 +127,6 @@ def capture_templates():
     templates_folder.mkdir(exist_ok=True)
 
     saved_names = set()
-
     for row in range(8):
         for column in range(8):
             square_name = f"{files[column]}{ranks[row]}"
@@ -136,6 +135,14 @@ def capture_templates():
                 continue
 
             piece_name = STARTING_PIECES[square_name]
+            if piece_name.endswith("_pawn"):
+                square_color = (
+                    "light"
+                    if (row + column) % 2 == 0
+                    else "dark"
+                )
+
+                piece_name = f"{piece_name}_{square_color}"
 
             if piece_name in saved_names:
                 continue
@@ -173,26 +180,131 @@ def capture_templates():
         )
     )
 
+def analyze_board():
+    status_label.config(text="Analyzing board...")
+    window.update_idletasks()
 
+    window.withdraw()
+    window.update()
+    time.sleep(0.4)
+
+    rgb_image = capture_screen()
+
+    window.deiconify()
+    window.update()
+
+    board_mask = create_board_mask(rgb_image)
+    kernel = np.ones((5, 5), dtype=np.uint8)
+
+    cleaned_mask = cv2.morphologyEx(
+    board_mask,
+    cv2.MORPH_CLOSE,
+    kernel,
+    iterations=2,
+)
+
+    print("Board mask cleaned.")
+    contours, _ = cv2.findContours(
+    cleaned_mask,
+    cv2.RETR_EXTERNAL,
+    cv2.CHAIN_APPROX_SIMPLE,
+)
+
+    print(f"Found {len(contours)} contours.")
+
+    candidates = []
+    for contour in contours:
+        x, y, width, height = cv2.boundingRect(contour)
+
+        if width < 300 or height < 300:
+            continue
+
+        aspect_ratio = width / height
+
+        if 0.85 <= aspect_ratio <= 1.15:
+            candidates.append(
+                (width * height, x, y, width, height)
+            )
+
+    print(f"Found {len(candidates)} board candidates.")
+    if not candidates:
+        status_label.config(text="No board found.")
+        return
+
+    candidates.sort(reverse=True)
+
+    _, board_x, board_y, board_width, board_height = candidates[0]
+
+    print(
+        f"Board found at {board_x}, {board_y} "
+        f"with size {board_width}x{board_height}."
+    )
+
+    board = rgb_image[
+    board_y:board_y + board_height,
+    board_x:board_x + board_width,
+]
+
+    print("Board cropped for analysis.")
+
+    square_width = board_width / 8
+    square_height = board_height / 8
+
+    print(
+        f"Each square is approximately "
+        f"{square_width:.1f}x{square_height:.1f} pixels."
+    )
+    files = "abcdefgh"
+    ranks = "87654321"
+
+    print("Ready to scan all 64 squares.")
+    for row in range(8):
+        for column in range(8):
+            square_name = f"{files[column]}{ranks[row]}"
+            x1 = round(column * square_width)
+            y1 = round(row * square_height)
+            x2 = round((column + 1) * square_width)
+            y2 = round((row + 1) * square_height)
+
+            square_image = board[y1:y2, x1:x2]
+
+            square_bgr = cv2.cvtColor(
+                square_image,
+                cv2.COLOR_RGB2BGR,
+            )
+
+            piece_name, score = identify_piece(
+                square_bgr,
+                piece_templates,
+            )
+            if piece_name is not None:
+                piece_name = piece_name.replace("_light", "")
+                piece_name = piece_name.replace("_dark", "")
+            if score < 0.50:
+                print(square_name, "empty", f"{score:.3f}")
+            else:
+                print(square_name, piece_name, f"{score:.3f}")
 piece_templates = {
-    "white_pawn": load_template("white_pawn"),
-    "white_knight": load_template("white_knight"),
-    "white_bishop": load_template("white_bishop"),
-    "white_rook": load_template("white_rook"),
-    "white_queen": load_template("white_queen"),
-    "white_king": load_template("white_king"),
-    "black_pawn": load_template("black_pawn"),
-    "black_knight": load_template("black_knight"),
-    "black_bishop": load_template("black_bishop"),
-    "black_rook": load_template("black_rook"),
-    "black_queen": load_template("black_queen"),
-    "black_king": load_template("black_king"),
+"white_pawn_light": load_template("white_pawn_light"),
+"white_pawn_dark": load_template("white_pawn_dark"),
+"white_knight": load_template("white_knight"),
+"white_bishop": load_template("white_bishop"),
+"white_rook": load_template("white_rook"),
+"white_queen": load_template("white_queen"),
+"white_king": load_template("white_king"),
+"black_pawn_light": load_template("black_pawn_light"),
+"black_pawn_dark": load_template("black_pawn_dark"),
+"black_knight": load_template("black_knight"),
+"black_bishop": load_template("black_bishop"),
+"black_rook": load_template("black_rook"),
+"black_queen": load_template("black_queen"),
+"black_king": load_template("black_king"),
 }
 
 
 window = tk.Tk()
 window.title("ChessVision")
-window.geometry("500x270")
+window.geometry("500x360")
 
 title_label = tk.Label(
     window,
@@ -217,7 +329,16 @@ capture_button = tk.Button(
     pady=10,
 )
 capture_button.pack(pady=12)
+analyze_button = tk.Button(
+    window,
+    text="Analyze Board",
+    font=("Arial", 12),
+    command=analyze_board,
+    padx=18,
+    pady=10,
+)
 
+analyze_button.pack(pady=8)
 status_label = tk.Label(
     window,
     text="Ready",
