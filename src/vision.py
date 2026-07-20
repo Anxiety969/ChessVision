@@ -376,3 +376,19 @@ def available_captures(recognized_position, white):
             )
 
     return captures
+def attacked_pieces(recognized_position, white):
+    attacked = []
+
+    opponent_attacks = color_attacks(
+        recognized_position,
+        not white,
+    )
+
+    for square_name, symbol in recognized_position.items():
+        if symbol.isupper() != white:
+            continue
+
+        if square_name in opponent_attacks:
+            attacked.append((square_name, symbol))
+
+    return attacked

@@ -24,6 +24,7 @@ from vision import (
     king_in_check,
     checking_pieces,
     available_captures,
+    attacked_pieces,
 
 )   
 
@@ -369,6 +370,15 @@ def analyze_board():
     print(
         "Black captures:",
         available_captures(recognized_position, False),
+    )
+    print(
+    "White pieces under attack:",
+    attacked_pieces(recognized_position, True),
+    )
+
+    print(
+        "Black pieces under attack:",
+        attacked_pieces(recognized_position, False),
     )   
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
