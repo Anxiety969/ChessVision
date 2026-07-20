@@ -86,3 +86,42 @@ def identify_piece(square_image, piece_templates):
             best_piece = piece_name
 
     return best_piece, best_score
+def square_to_coordinates(square_name):
+    file_index = ord(square_name[0]) - ord("a")
+    rank_index = 8 - int(square_name[1])
+
+    return rank_index, file_index
+def coordinates_to_square(row, column):
+    file_name = chr(ord("a") + column)
+    rank_name = str(8 - row)
+
+    return f"{file_name}{rank_name}"
+def knight_attacks(square_name):
+    row, column = square_to_coordinates(square_name)
+
+    moves = [
+        (-2, -1),
+        (-2, 1),
+        (-1, -2),
+        (-1, 2),
+        (1, -2),
+        (1, 2),
+        (2, -1),
+        (2, 1),
+    ]
+
+    attacked_squares = []
+
+    for row_change, column_change in moves:
+        target_row = row + row_change
+        target_column = column + column_change
+
+        if 0 <= target_row < 8 and 0 <= target_column < 8:
+            attacked_squares.append(
+                coordinates_to_square(
+                    target_row,
+                    target_column,
+                )
+            )
+
+    return attacked_squares

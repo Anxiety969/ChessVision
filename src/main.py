@@ -11,7 +11,10 @@ from vision import (
     create_board_mask,
     identify_piece,
     load_template,
-)
+    square_to_coordinates,
+    coordinates_to_square,
+    knight_attacks,
+)   
 
 
 PROJECT_FOLDER = Path(__file__).parent
@@ -303,6 +306,12 @@ def analyze_board():
 
                 print(square_name, piece_name, f"{score:.3f}")
     print(f"Recognized {len(recognized_position)} occupied squares.")
+    for square_name, symbol in recognized_position.items():
+        if symbol.lower() == "n":
+            print(
+                f"Knight on {square_name} attacks:",
+                knight_attacks(square_name),
+            )
     for rank in ranks:
         row_symbols = []
 
