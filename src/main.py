@@ -16,6 +16,7 @@ from vision import (
     knight_attacks,
     king_attacks,
     pawn_attacks,
+    rook_attacks,
 )   
 
 
@@ -325,6 +326,12 @@ def analyze_board():
             print(
                 f"Pawn on {square_name} attacks:",
                 pawn_attacks(square_name, symbol),
+            )
+    for square_name, symbol in recognized_position.items():
+        if symbol.lower() == "r":
+            print(
+                f"Rook on {square_name} attacks:",
+                rook_attacks(square_name),
             )
     for rank in ranks:
         row_symbols = []

@@ -174,3 +174,32 @@ def pawn_attacks(square_name, symbol):
             )
 
     return attacked_squares
+
+def rook_attacks(square_name):
+    row, column = square_to_coordinates(square_name)
+
+    attacked_squares = []
+
+    directions = (
+        (-1, 0),
+        (1, 0),
+        (0, -1),
+        (0, 1),
+    )
+
+    for row_change, column_change in directions:
+        target_row = row + row_change
+        target_column = column + column_change
+
+        while 0 <= target_row < 8 and 0 <= target_column < 8:
+            attacked_squares.append(
+                coordinates_to_square(
+                    target_row,
+                    target_column,
+                )
+            )
+
+            target_row += row_change
+            target_column += column_change
+
+    return attacked_squares
