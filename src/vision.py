@@ -60,3 +60,11 @@ def compare_images(image1, image2):
     )
 
     return float(result[0][0])
+def load_template(template_name):
+    template_path = (
+        PROJECT_FOLDER /
+        "piece_templates" /
+        f"{template_name}.png"
+    )
+
+    return cv2.imread(str(template_path))

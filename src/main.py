@@ -1,19 +1,19 @@
+import time
 import tkinter as tk
 from pathlib import Path
 
 import cv2
 import numpy as np
 
-from vision import capture_screen, create_board_mask, compare_images
+from vision import (
+    capture_screen,
+    compare_images,
+    create_board_mask,
+    load_template,
+)
+
+
 PROJECT_FOLDER = Path(__file__).parent
-
-SCREENSHOT_PATH = PROJECT_FOLDER / "screenshot.png"
-TEMPLATES_FOLDER = PROJECT_FOLDER / "piece_templates"
-
-LIGHT_SQUARE = np.array([235, 236, 208], dtype=np.float32)
-DARK_SQUARE = np.array([119, 149, 86], dtype=np.float32)
-
-COLOR_TOLERANCE = 35
 
 
 STARTING_PIECES = {
@@ -55,15 +55,18 @@ STARTING_PIECES = {
 }
 
 
-
-
-
-
 def capture_templates():
     status_label.config(text="Capturing templates...")
     window.update_idletasks()
 
+    window.withdraw()
+    window.update()
+    time.sleep(0.4)
+
     rgb_image = capture_screen()
+
+    window.deiconify()
+    window.update()
 
     board_mask = create_board_mask(rgb_image)
 
@@ -73,13 +76,13 @@ def capture_templates():
         board_mask,
         cv2.MORPH_CLOSE,
         kernel,
-        iterations=2
+        iterations=2,
     )
 
     contours, _ = cv2.findContours(
         cleaned_mask,
         cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE
+        cv2.CHAIN_APPROX_SIMPLE,
     )
 
     candidates = []
@@ -107,7 +110,7 @@ def capture_templates():
 
     board = rgb_image[
         board_y:board_y + board_height,
-        board_x:board_x + board_width
+        board_x:board_x + board_width,
     ]
 
     square_width = board_width / 8
@@ -116,7 +119,8 @@ def capture_templates():
     files = "abcdefgh"
     ranks = "87654321"
 
-    TEMPLATES_FOLDER.mkdir(exist_ok=True)
+    templates_folder = PROJECT_FOLDER / "piece_templates"
+    templates_folder.mkdir(exist_ok=True)
 
     saved_names = set()
 
@@ -141,16 +145,19 @@ def capture_templates():
 
             square_bgr = cv2.cvtColor(
                 square_image,
-                cv2.COLOR_RGB2BGR
+                cv2.COLOR_RGB2BGR,
             )
 
             output_path = (
-                TEMPLATES_FOLDER / f"{piece_name}.png"
+                templates_folder /
+                f"{piece_name}.png"
             )
+
+            piece_templates[piece_name] = square_bgr
 
             cv2.imwrite(
                 str(output_path),
-                square_bgr
+                square_bgr,
             )
 
             saved_names.add(piece_name)
@@ -163,6 +170,22 @@ def capture_templates():
     )
 
 
+piece_templates = {
+    "white_pawn": load_template("white_pawn"),
+    "white_knight": load_template("white_knight"),
+    "white_bishop": load_template("white_bishop"),
+    "white_rook": load_template("white_rook"),
+    "white_queen": load_template("white_queen"),
+    "white_king": load_template("white_king"),
+    "black_pawn": load_template("black_pawn"),
+    "black_knight": load_template("black_knight"),
+    "black_bishop": load_template("black_bishop"),
+    "black_rook": load_template("black_rook"),
+    "black_queen": load_template("black_queen"),
+    "black_king": load_template("black_king"),
+}
+
+
 window = tk.Tk()
 window.title("ChessVision")
 window.geometry("500x270")
@@ -170,14 +193,14 @@ window.geometry("500x270")
 title_label = tk.Label(
     window,
     text="ChessVision",
-    font=("Arial", 22, "bold")
+    font=("Arial", 22, "bold"),
 )
 title_label.pack(pady=(25, 8))
 
 instruction_label = tk.Label(
     window,
     text="Leave the board in the starting position.",
-    font=("Arial", 11)
+    font=("Arial", 11),
 )
 instruction_label.pack(pady=8)
 
@@ -187,7 +210,7 @@ capture_button = tk.Button(
     font=("Arial", 12),
     command=capture_templates,
     padx=18,
-    pady=10
+    pady=10,
 )
 capture_button.pack(pady=12)
 
@@ -195,7 +218,7 @@ status_label = tk.Label(
     window,
     text="Ready",
     font=("Arial", 10),
-    justify="center"
+    justify="center",
 )
 status_label.pack(pady=6)
 
