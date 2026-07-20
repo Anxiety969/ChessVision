@@ -417,6 +417,58 @@ def hanging_pieces(recognized_position, white):
             attacked.append((square_name, symbol))
 
     return attacked
+def knight_fork_opportunities(recognized_position, white):
+    valuable_targets = {"n", "b", "r", "q", "k"}
+    forks = []
+
+    for square_name, symbol in recognized_position.items():
+        if symbol.isupper() != white:
+            continue
+
+        if symbol.lower() != "n":
+            continue
+
+        legal_moves = legal_moves_for_piece(
+            recognized_position,
+            square_name,
+        )
+
+        for target_square in legal_moves:
+            test_position = make_move(
+                recognized_position,
+                square_name,
+                target_square,
+            )
+
+            attacked_targets = []
+
+            for attacked_square in knight_attacks(target_square):
+                attacked_symbol = test_position.get(attacked_square)
+
+                if attacked_symbol is None:
+                    continue
+
+                if attacked_symbol.isupper() == white:
+                    continue
+
+                if attacked_symbol.lower() in valuable_targets:
+                    attacked_targets.append(
+                        (
+                            attacked_square,
+                            attacked_symbol,
+                        )
+                    )
+
+            if len(attacked_targets) >= 2:
+                forks.append(
+                    (
+                        square_name,
+                        target_square,
+                        attacked_targets,
+                    )
+                )
+
+    return forks
 def under_defended_pieces(recognized_position, white):
     piece_values = {
         "p": 1,

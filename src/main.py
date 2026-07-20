@@ -27,6 +27,7 @@ from vision import (
     available_captures,
     attacked_pieces,
     hanging_pieces,
+    knight_fork_opportunities,
     under_defended_pieces,
     make_move,
     move_is_legal,
@@ -519,20 +520,45 @@ def analyze_board():
     print("Black hanging pieces:", black_hanging)
 
     piece_names = {
-        "p": "pawn",
-        "n": "knight",
-        "b": "bishop",
-        "r": "rook",
-        "q": "queen",
-    }
+    "p": "pawn",
+    "n": "knight",
+    "b": "bishop",
+    "r": "rook",
+    "q": "queen",
+    "k": "king",
+}
 
     playing_white = protected_color.get() == "white"
+    your_knight_forks = knight_fork_opportunities(
+    recognized_position,
+    playing_white,
+)
 
+    print("Your knight fork opportunities:", your_knight_forks)
     your_hanging = white_hanging if playing_white else black_hanging
     enemy_hanging = black_hanging if playing_white else white_hanging
 
     danger_lines = []
     opportunity_lines = []
+    for start_square, target_square, attacked_targets in your_knight_forks:
+        target_types = {
+            symbol.lower()
+            for _, symbol in attacked_targets
+        }
+
+        if not target_types.intersection({"k", "q", "r"}):
+            continue
+
+        attacked_names = [
+            piece_names[symbol.lower()]
+            for _, symbol in attacked_targets
+        ]
+
+        opportunity_lines.append(
+            f"FORK AVAILABLE: Knight {start_square} to "
+            f"{target_square} attacks the "
+            f"{' and '.join(attacked_names)}."
+        )
 
     for square_name, symbol in your_hanging:
         danger_lines.append(
@@ -802,31 +828,100 @@ warning_frame = tk.LabelFrame(
     window,
     text="Training Warnings",
     font=("Arial", 11, "bold"),
-    padx=10,
-    pady=8,
+    padx=6,
+    pady=6,
+)
+
+warning_frame.pack(fill="x", padx=12, pady=8)
+
+warning_canvas = tk.Canvas(
+    warning_frame,
+    height=180,
+    highlightthickness=0,
+)
+
+warning_scrollbar = tk.Scrollbar(
+    warning_frame,
+    orient="vertical",
+    command=warning_canvas.yview,
+)
+
+warning_list_frame = tk.Frame(warning_canvas)
+
+warning_list_window = warning_canvas.create_window(
+    (0, 0),
+    window=warning_list_frame,
+    anchor="nw",
+)
+
+warning_canvas.configure(
+    yscrollcommand=warning_scrollbar.set,
+)
+
+warning_canvas.pack(
+    side="left",
+    fill="both",
+    expand=True,
+)
+
+warning_scrollbar.pack(
+    side="right",
+    fill="y",
+)
+
+
+def resize_warning_list(event):
+    warning_canvas.itemconfigure(
+        warning_list_window,
+        width=event.width,
+    )
+
+
+def update_warning_scroll_region(event=None):
+    warning_canvas.configure(
+        scrollregion=warning_canvas.bbox("all"),
+    )
+
+
+warning_canvas.bind(
+    "<Configure>",
+    resize_warning_list,
+)
+
+warning_list_frame.bind(
+    "<Configure>",
+    update_warning_scroll_region,
 )
 danger_label = tk.Label(
-    warning_frame,
+    warning_list_frame,
     text="No immediate danger detected.",
     font=("Arial", 12, "bold"),
     fg="darkred",
     justify="left",
+    anchor="w",
     wraplength=300,
 )
 
-danger_label.pack(anchor="w")
+danger_label.pack(
+    fill="x",
+    anchor="w",
+)
 
 opportunity_label = tk.Label(
-    warning_frame,
+    warning_list_frame,
     text="No immediate opportunity detected.",
     font=("Arial", 12, "bold"),
     fg="darkgreen",
     justify="left",
+    anchor="w",
     wraplength=300,
 )
 
-opportunity_label.pack(anchor="w", pady=(6, 0))
-warning_frame.pack(fill="x", padx=12, pady=8)
+opportunity_label.pack(
+    fill="x",
+    anchor="w",
+    pady=(6, 0),
+)
 show_protected_squares = tk.BooleanVar(value=False)
 auto_analyze_enabled = tk.BooleanVar(value=False)
 protected_color = tk.StringVar(value="white")
