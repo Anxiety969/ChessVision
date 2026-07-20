@@ -341,6 +341,6 @@ def checking_pieces(recognized_position, white):
         )
 
         if king_square in attacks:
-            attackers.append(square_name)
+            attackers.append((square_name, symbol))
 
     return attackers
