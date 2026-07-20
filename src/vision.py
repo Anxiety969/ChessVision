@@ -344,3 +344,35 @@ def checking_pieces(recognized_position, white):
             attackers.append((square_name, symbol))
 
     return attackers
+def available_captures(recognized_position, white):
+    captures = []
+
+    for square_name, symbol in recognized_position.items():
+        if symbol.isupper() != white:
+            continue
+
+        attacks = piece_attacks(
+            square_name,
+            symbol,
+            recognized_position,
+        )
+
+        for target_square in attacks:
+            target_symbol = recognized_position.get(target_square)
+
+            if target_symbol is None:
+                continue
+
+            if target_symbol.isupper() == white:
+                continue
+
+            captures.append(
+                (
+                    square_name,
+                    symbol,
+                    target_square,
+                    target_symbol,
+                )
+            )
+
+    return captures
