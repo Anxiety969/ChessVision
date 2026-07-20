@@ -1,6 +1,7 @@
 import time
 import tkinter as tk
 from pathlib import Path
+from PIL import Image, ImageTk
 
 import cv2
 import numpy as np
@@ -137,6 +138,7 @@ def capture_templates():
         board_y:board_y + board_height,
         board_x:board_x + board_width,
     ]
+    
     board_bgr = cv2.cvtColor(
     board,
     cv2.COLOR_RGB2BGR,
@@ -269,7 +271,95 @@ def analyze_board():
     board_y:board_y + board_height,
     board_x:board_x + board_width,
 ]
+    display_board = cv2.resize(board, (320, 320))
 
+    board_image = Image.fromarray(display_board)
+    board_photo = ImageTk.PhotoImage(board_image)
+
+    board_canvas.delete("all")
+    board_canvas.create_image(0, 0, anchor="nw", image=board_photo)
+    board_canvas.image = board_photo
+    def handle_board_click(event):
+        square = pixel_to_square(
+            event.x,
+            event.y,
+            0,
+            0,
+            40,
+        )
+
+        options = selected_piece_options(
+            recognized_position,
+            square,
+        )
+        board_canvas.delete("move_highlight")
+        board_canvas.delete("move_highlight")
+
+        def highlight_square(chess_square, outline, width):
+            file_index = ord(chess_square[0]) - ord("a")
+            rank_index = 8 - int(chess_square[1])
+
+            x1 = file_index * 40
+            y1 = rank_index * 40
+            x2 = x1 + 40
+            y2 = y1 + 40
+
+            board_canvas.create_rectangle(
+                x1,
+                y1,
+                x2,
+                y2,
+                outline=outline,
+                width=width,
+                tags="move_highlight",
+            )
+
+        highlight_square(square, "yellow", 4)
+
+        for move in options["moves"]:
+            highlight_square(move, "blue", 3)
+
+        for capture_square, _ in options["captures"]:
+            highlight_square(capture_square, "red", 3)
+
+        print("Selected square:", square)
+        print("Available moves:", options["moves"])
+        print("Captures:", options["captures"])
+
+    board_canvas.bind("<Button-1>", handle_board_click)
+    def update_protected_squares():
+        board_canvas.delete("protected_highlight")
+
+        if not show_protected_squares.get():
+            return
+
+        protected_squares = color_attacks(
+            recognized_position,
+            True,
+        )
+
+        for chess_square in protected_squares:
+            file_index = ord(chess_square[0]) - ord("a")
+            rank_index = 8 - int(chess_square[1])
+
+            x1 = file_index * 40
+            y1 = rank_index * 40
+            x2 = x1 + 40
+            y2 = y1 + 40
+
+            board_canvas.create_rectangle(
+                x1,
+                y1,
+                x2,
+                y2,
+                fill="#4da6ff",
+                stipple="gray50",
+                outline="#0066ff",
+                width=2,
+                tags="protected_highlight",
+            )
+
+    protected_toggle.config(command=update_protected_squares)
     print("Board cropped for analysis.")
 
     square_width = board_width / 8
@@ -389,17 +479,7 @@ def analyze_board():
         "Black pieces under attack:",
         attacked_pieces(recognized_position, False),
     )
-    test_position = make_move(
-    recognized_position,
-    "e2",
-    "e4",
-    )
 
-    print(
-        "Test move e2 to e4:",
-        test_position.get("e2"),
-        test_position.get("e4"),
-    )
     print(
     "Test move e2 to d2 legal:",
     move_is_legal(
@@ -494,7 +574,7 @@ piece_templates = {
 
 window = tk.Tk()
 window.title("ChessVision")
-window.geometry("500x360")
+window.geometry("500x720")
 selected_square = None
 
 title_label = tk.Label(
@@ -536,6 +616,25 @@ status_label = tk.Label(
     font=("Arial", 10),
     justify="center",
 )
+show_protected_squares = tk.BooleanVar(value=False)
+
+protected_toggle = tk.Checkbutton(
+    window,
+    text="Show Protected Squares",
+    variable=show_protected_squares,
+)
+
+protected_toggle.pack(pady=4)
 status_label.pack(pady=6)
+board_canvas = tk.Canvas(
+    window,
+    width=320,
+    height=320,
+    bg="black",
+    highlightthickness=1,
+    highlightbackground="gray",
+)
+
+board_canvas.pack(pady=10)
 
 window.mainloop()
