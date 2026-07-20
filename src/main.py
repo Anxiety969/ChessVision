@@ -210,8 +210,21 @@ def capture_templates():
         )
     )
 last_analyzed_position = None
+current_mode = "live"
+
 def analyze_board():
-    global last_analyzed_position
+    global last_analyzed_position, current_mode
+
+    returning_from_practice = current_mode == "practice"
+    current_mode = "live"
+
+    if returning_from_practice:
+        # Force the live position to be evaluated even when the physical board
+        # has not changed since Practice Mode was opened.
+        last_analyzed_position = None
+        danger_label.config(text="Checking live position...", fg="gray40")
+        opportunity_label.config(text="Checking live position...", fg="gray40")
+
     status_label.config(text="Analyzing board...")
     window.update_idletasks()
 
@@ -756,8 +769,123 @@ def auto_analyze_tick():
 
 
 def toggle_auto_analyze():
+    global current_mode, last_analyzed_position
     if auto_analyze_enabled.get():
-        auto_analyze_tick()       
+        if current_mode == "practice":
+            # Do not let the unchanged-position shortcut preserve lesson text.
+            last_analyzed_position = None
+            danger_label.config(text="Checking live position...", fg="gray40")
+            opportunity_label.config(text="Checking live position...", fg="gray40")
+
+        current_mode = "live"
+        status_label.config(text="Watching for board changes...")
+        auto_analyze_tick()
+
+LONDON_POSITIONS = [
+    {
+        "name": "London Setup — Develop the bishop",
+        "fen": "rnbqkbnr/ppp1pppp/8/3p4/3P1B2/8/PPP1PPPP/RN1QKBNR b KQkq - 1 2",
+        "warning": "Black may challenge your center with ...c5 or ...e5.",
+        "options": [
+            "Best move: Nf3 — develop and support the center.",
+            "Safer alternative: e3 — secure d4 and open the bishop.",
+            "Aggressive alternative: Nc3 — adds pressure on d5.",
+        ],
+    },
+    {
+        "name": "London Setup — Build the triangle",
+        "fen": "rnbqkb1r/ppp1pppp/5n2/3p4/3P1B2/4P3/PPP2PPP/RN1QKBNR w KQkq - 1 3",
+        "warning": "Do not allow ...Nh5 to win the bishop without a plan.",
+        "options": [
+            "Best move: Nf3 — finish the standard setup.",
+            "Safer alternative: h3 — gives the bishop an escape square.",
+            "Aggressive alternative: c4 — immediately challenge d5.",
+        ],
+    },
+    {
+        "name": "London Setup — Choose the plan",
+        "fen": "rnbqkb1r/ppp1pppp/5n2/3p4/3P1B2/2N1PN2/PPP2PPP/R2QKB1R b KQkq - 3 4",
+        "warning": "Watch for ...c5 followed by ...Qb6 against b2.",
+        "options": [
+            "Best move: Bd3 — point the bishop toward h7.",
+            "Safer alternative: Be2 — prepare quick castling.",
+            "Aggressive alternative: Nb5 — pressure c7 when justified.",
+        ],
+    },
+]
+
+CHESS_SYMBOLS = {
+    "K": "♔", "Q": "♕", "R": "♖", "B": "♗", "N": "♘", "P": "♙",
+    "k": "♚", "q": "♛", "r": "♜", "b": "♝", "n": "♞", "p": "♟",
+}
+
+london_position_index = -1
+
+
+def parse_fen_board(fen):
+    position = {}
+    ranks = fen.split()[0].split("/")
+    for row, rank_data in enumerate(ranks):
+        file_index = 0
+        for character in rank_data:
+            if character.isdigit():
+                file_index += int(character)
+                continue
+            square = f"{chr(ord('a') + file_index)}{8 - row}"
+            position[square] = character
+            file_index += 1
+    return position
+
+
+def draw_training_board(fen):
+    board_canvas.delete("all")
+    light_square = "#f0d9b5"
+    dark_square = "#b58863"
+    position = parse_fen_board(fen)
+
+    for row in range(8):
+        for column in range(8):
+            x1 = column * SQUARE_DISPLAY_SIZE
+            y1 = row * SQUARE_DISPLAY_SIZE
+            x2 = x1 + SQUARE_DISPLAY_SIZE
+            y2 = y1 + SQUARE_DISPLAY_SIZE
+            fill = light_square if (row + column) % 2 == 0 else dark_square
+            board_canvas.create_rectangle(x1, y1, x2, y2, fill=fill, outline=fill)
+
+    for square, piece in position.items():
+        column = ord(square[0]) - ord("a")
+        row = 8 - int(square[1])
+        center_x = column * SQUARE_DISPLAY_SIZE + SQUARE_DISPLAY_SIZE / 2
+        center_y = row * SQUARE_DISPLAY_SIZE + SQUARE_DISPLAY_SIZE / 2
+        board_canvas.create_text(
+            center_x,
+            center_y,
+            text=CHESS_SYMBOLS[piece],
+            font=("Segoe UI Symbol", 40),
+        )
+
+
+def practice_london():
+    global london_position_index, current_mode
+
+    # Practice mode owns the board until live analysis is requested again.
+    current_mode = "practice"
+    auto_analyze_enabled.set(False)
+
+    london_position_index = (london_position_index + 1) % len(LONDON_POSITIONS)
+    lesson = LONDON_POSITIONS[london_position_index]
+
+    draw_training_board(lesson["fen"])
+    status_label.config(
+        text=(
+            f"London practice {london_position_index + 1}/{len(LONDON_POSITIONS)}: "
+            f"{lesson['name']} — Analyze Board or Auto Analyze returns to live mode."
+        )
+    )
+    danger_label.config(text=lesson["warning"], fg="darkred")
+    opportunity_label.config(text="\n\n".join(lesson["options"]), fg="darkgreen")
+
+
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),
@@ -849,6 +977,15 @@ analyze_button = tk.Button(
     pady=5,
 )
 analyze_button.pack(side="left", padx=(0, 8))
+
+london_button = tk.Button(
+    controls_frame,
+    text="Practice London",
+    command=practice_london,
+    padx=8,
+    pady=5,
+)
+london_button.pack(side="left", padx=(0, 8))
 
 auto_analyze_toggle = tk.Checkbutton(
     controls_frame,
