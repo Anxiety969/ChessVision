@@ -231,3 +231,5 @@ def bishop_attacks(square_name):
             target_column += column_change
 
     return attacked_squares
+def queen_attacks(square_name):
+    return rook_attacks(square_name) + bishop_attacks(square_name)
