@@ -28,6 +28,7 @@ from vision import (
     make_move,
     move_is_legal,
     pinned_pieces,
+    legal_moves_for_piece,
 
 )   
 
@@ -410,7 +411,14 @@ def analyze_board():
     print(
     "Black pinned pieces:",
     pinned_pieces(recognized_position, False),
-)    
+)   
+    print(
+    "Legal moves for e2:",
+    legal_moves_for_piece(
+    recognized_position,
+    "e2",
+    ),
+) 
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),

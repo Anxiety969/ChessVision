@@ -449,3 +449,35 @@ def pinned_pieces(recognized_position, white):
             break
 
     return pinned
+def legal_moves_for_piece(
+    recognized_position,
+    square_name,
+):
+    symbol = recognized_position.get(square_name)
+
+    if symbol is None:
+        return []
+
+    legal_moves = []
+
+    for target_square in piece_attacks(
+        square_name,
+        symbol,
+        recognized_position,
+    ):
+        target_symbol = recognized_position.get(target_square)
+
+        if (
+            target_symbol is not None
+            and target_symbol.isupper() == symbol.isupper()
+        ):
+            continue
+
+        if move_is_legal(
+            recognized_position,
+            square_name,
+            target_square,
+        ):
+            legal_moves.append(target_square)
+
+    return legal_moves
