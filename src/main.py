@@ -782,22 +782,23 @@ piece_templates = {
 
 window = tk.Tk()
 window.title("ChessVision")
-window.geometry("500x720")
-selected_square = None
+window.geometry("500x980")
+window.minsize(500, 980)
+window.attributes("-topmost", True)
 
 title_label = tk.Label(
     window,
     text="ChessVision",
     font=("Arial", 22, "bold"),
 )
-title_label.pack(pady=(25, 8))
+title_label.pack(pady=(10, 4))
 
 instruction_label = tk.Label(
     window,
     text="Leave the board in the starting position.",
     font=("Arial", 11),
 )
-instruction_label.pack(pady=8)
+instruction_label.pack(pady=4)
 
 capture_button = tk.Button(
     window,
@@ -807,7 +808,7 @@ capture_button = tk.Button(
     padx=18,
     pady=10,
 )
-capture_button.pack(pady=12)
+capture_button.pack(pady=4)
 analyze_button = tk.Button(
     window,
     text="Analyze Board",
@@ -817,12 +818,20 @@ analyze_button = tk.Button(
     pady=10,
 )
 
-analyze_button.pack(pady=8)
-status_label = tk.Label(
+status_frame = tk.Frame(
     window,
+    height=48,
+)
+
+status_frame.pack_propagate(False)
+
+status_label = tk.Label(
+    status_frame,
     text="Ready",
     font=("Arial", 10),
     justify="center",
+    anchor="center",
+    wraplength=460,
 )
 warning_frame = tk.LabelFrame(
     window,
@@ -833,6 +842,10 @@ warning_frame = tk.LabelFrame(
 )
 
 warning_frame.pack(fill="x", padx=12, pady=8)
+analyze_button.pack(
+    before=warning_frame,
+    pady=8,
+)
 
 warning_canvas = tk.Canvas(
     warning_frame,
@@ -963,7 +976,8 @@ tk.Radiobutton(
 ).pack(side="left")
 protected_toggle.pack(pady=4)
 protected_color_frame.pack(pady=2)
-status_label.pack(pady=6)
+status_frame.pack(fill="x", padx=12, pady=3)
+status_label.pack(fill="both", expand=True)
 board_canvas = tk.Canvas(
     window,
     width=320,
@@ -972,7 +986,6 @@ board_canvas = tk.Canvas(
     highlightthickness=1,
     highlightbackground="gray",
 )
-
-board_canvas.pack(pady=10)
+board_canvas.pack(pady=4)
 
 window.mainloop()
