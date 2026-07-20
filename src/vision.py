@@ -154,3 +154,23 @@ def king_attacks(square_name):
             )
 
     return attacked_squares
+def pawn_attacks(square_name, symbol):
+    row, column = square_to_coordinates(square_name)
+
+    row_change = -1 if symbol == "P" else 1
+
+    attacked_squares = []
+
+    for column_change in (-1, 1):
+        target_row = row + row_change
+        target_column = column + column_change
+
+        if 0 <= target_row < 8 and 0 <= target_column < 8:
+            attacked_squares.append(
+                coordinates_to_square(
+                    target_row,
+                    target_column,
+                )
+            )
+
+    return attacked_squares
