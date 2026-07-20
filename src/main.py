@@ -30,6 +30,7 @@ from vision import (
     pinned_pieces,
     legal_moves_for_piece,
     legal_move_details,
+    legal_captures_for_piece,
 
 )   
 
@@ -423,6 +424,13 @@ def analyze_board():
     print(
     "Legal move details for e2:",
     legal_move_details(
+        recognized_position,
+        "e2",
+    ),
+)
+    print(
+    "Legal captures for e2:",
+    legal_captures_for_piece(
         recognized_position,
         "e2",
     ),

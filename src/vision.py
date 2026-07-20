@@ -516,3 +516,11 @@ def legal_move_details(
         "moves": moves,
         "captures": captures,
     }
+def legal_captures_for_piece(
+    recognized_position,
+    square_name,
+):
+    return legal_move_details(
+        recognized_position,
+        square_name,
+    )["captures"]
