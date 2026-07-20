@@ -208,18 +208,22 @@ def capture_templates():
             "Open the piece_templates folder."
         )
     )
-
+last_analyzed_position = None
 def analyze_board():
+    global last_analyzed_position
     status_label.config(text="Analyzing board...")
     window.update_idletasks()
 
-    window.withdraw()
+    if not auto_analyze_enabled.get():
+        window.withdraw()
     window.update()
     time.sleep(0.4)
 
     rgb_image = capture_screen()
 
-    window.deiconify()
+    if not auto_analyze_enabled.get():
+        window.deiconify()
+    window.update()
     window.update()
 
     board_mask = create_board_mask(rgb_image)
@@ -281,6 +285,24 @@ def analyze_board():
     board_canvas.delete("all")
     board_canvas.create_image(0, 0, anchor="nw", image=board_photo)
     board_canvas.image = board_photo
+    def mark_piece(square_name, outline):
+        file_index = ord(square_name[0]) - ord("a")
+        rank_index = 8 - int(square_name[1])
+
+        x1 = file_index * 40 + 2
+        y1 = rank_index * 40 + 2
+        x2 = x1 + 36
+        y2 = y1 + 36
+
+        board_canvas.create_oval(
+            x1,
+            y1,
+            x2,
+            y2,
+            outline=outline,
+            width=4,
+            tags="warning_highlight",
+        )
     def handle_board_click(event):
         square = pixel_to_square(
             event.x,
@@ -417,6 +439,16 @@ def analyze_board():
                 recognized_position[square_name] = piece_symbols[piece_name]
 
                 print(square_name, piece_name, f"{score:.3f}")
+                current_position = tuple(sorted(recognized_position.items()))
+
+    if (
+        auto_analyze_enabled.get()
+        and current_position == last_analyzed_position
+    ):
+        status_label.config(text="Watching for board changes...")
+        return
+
+    last_analyzed_position = current_position
     for rank in ranks:
         row_symbols = []
 
@@ -480,15 +512,61 @@ def analyze_board():
         "Black pieces under attack:",
         attacked_pieces(recognized_position, False),
     )
-    print(
-    "White hanging pieces:",
-    hanging_pieces(recognized_position, True),
-)
+    white_hanging = hanging_pieces(recognized_position, True)
+    black_hanging = hanging_pieces(recognized_position, False)
 
-    print(
-    "Black hanging pieces:",
-    hanging_pieces(recognized_position, False),
-) 
+    print("White hanging pieces:", white_hanging)
+    print("Black hanging pieces:", black_hanging)
+
+    piece_names = {
+        "p": "pawn",
+        "n": "knight",
+        "b": "bishop",
+        "r": "rook",
+        "q": "queen",
+    }
+
+    playing_white = protected_color.get() == "white"
+
+    your_hanging = white_hanging if playing_white else black_hanging
+    enemy_hanging = black_hanging if playing_white else white_hanging
+
+    danger_lines = []
+    opportunity_lines = []
+
+    for square_name, symbol in your_hanging:
+        danger_lines.append(
+            f"DANGER: Your {piece_names[symbol.lower()]} on "
+            f"{square_name} is hanging!"
+        )
+
+    for square_name, symbol in enemy_hanging:
+        opportunity_lines.append(
+            f"OPPORTUNITY: Enemy {piece_names[symbol.lower()]} on "
+            f"{square_name} is hanging."
+        )
+
+    if danger_lines:
+        danger_label.config(
+            text="\n".join(danger_lines),
+            fg="darkred",
+        )
+    else:
+        danger_label.config(
+            text="No immediate danger detected.",
+            fg="darkgreen",
+        )
+
+    if opportunity_lines:
+        opportunity_label.config(
+            text="\n".join(opportunity_lines),
+            fg="darkgreen",
+        )
+    else:
+        opportunity_label.config(
+            text="No immediate opportunity detected.",
+            fg="gray40",
+        )
     print(
     "Test move e2 to d2 legal:",
     move_is_legal(
@@ -559,15 +637,101 @@ def analyze_board():
         213,
     ),
 )
-    print(
-    "White under-defended pieces:",
-    under_defended_pieces(recognized_position, True),
-)
+    white_under_defended = under_defended_pieces(
+        recognized_position,
+        True,
+    )
+
+    black_under_defended = under_defended_pieces(
+        recognized_position,
+        False,
+    )
 
     print(
-    "Black under-defended pieces:",
-    under_defended_pieces(recognized_position, False),
-)
+        "White under-defended pieces:",
+        white_under_defended,
+    )
+
+    print(
+        "Black under-defended pieces:",
+        black_under_defended,
+    )
+
+    your_under_defended = (
+        white_under_defended
+        if playing_white
+        else black_under_defended
+    )
+
+    enemy_under_defended = (
+        black_under_defended
+        if playing_white
+        else white_under_defended
+    )
+
+    for square_name, symbol, attackers in your_under_defended:
+                if (square_name, symbol) in your_hanging:
+                    continue
+                attacker_names = ", ".join(
+            f"{piece_names[attacker_symbol.lower()]} on {attacker_square}"
+            for attacker_square, attacker_symbol in attackers
+        )
+
+                danger_lines.append(
+            f"WARNING: Your {piece_names[symbol.lower()]} on "
+            f"{square_name} is under-defended.\n"
+            f"Attacked by: {attacker_names}"
+        )
+
+    for square_name, symbol, attackers in enemy_under_defended:
+                if (square_name, symbol) in enemy_hanging:
+                    continue
+                attacker_names = ", ".join(
+            f"{piece_names[attacker_symbol.lower()]} on {attacker_square}"
+            for attacker_square, attacker_symbol in attackers
+        )
+
+                opportunity_lines.append(
+            f"TARGET: Enemy {piece_names[symbol.lower()]} on "
+            f"{square_name} is under-defended.\n"
+            f"Attacked by: {attacker_names}"
+        )
+
+    danger_label.config(
+        text="\n\n".join(danger_lines)
+        if danger_lines
+        else "No immediate danger detected.",
+        fg="darkred" if danger_lines else "darkgreen",
+    )
+
+    opportunity_label.config(
+        text="\n\n".join(opportunity_lines)
+        if opportunity_lines
+        else "No immediate opportunity detected.",
+        fg="darkgreen" if opportunity_lines else "gray40",
+    )
+    board_canvas.delete("warning_highlight")
+
+    for square_name, _ in your_hanging:
+        mark_piece(square_name, "red")
+
+    for square_name, _ in enemy_hanging:
+        mark_piece(square_name, "green")
+
+    for square_name, symbol, _ in your_under_defended:
+        if (square_name, symbol) not in your_hanging:
+            mark_piece(square_name, "orange")
+def auto_analyze_tick():
+    if not auto_analyze_enabled.get():
+        return
+
+    analyze_board()
+    window.after(2000, auto_analyze_tick)
+
+
+def toggle_auto_analyze():
+    if auto_analyze_enabled.get():
+        auto_analyze_tick()       
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),
@@ -634,13 +798,51 @@ status_label = tk.Label(
     font=("Arial", 10),
     justify="center",
 )
+warning_frame = tk.LabelFrame(
+    window,
+    text="Training Warnings",
+    font=("Arial", 11, "bold"),
+    padx=10,
+    pady=8,
+)
+danger_label = tk.Label(
+    warning_frame,
+    text="No immediate danger detected.",
+    font=("Arial", 12, "bold"),
+    fg="darkred",
+    justify="left",
+    wraplength=300,
+)
+
+danger_label.pack(anchor="w")
+
+opportunity_label = tk.Label(
+    warning_frame,
+    text="No immediate opportunity detected.",
+    font=("Arial", 12, "bold"),
+    fg="darkgreen",
+    justify="left",
+    wraplength=300,
+)
+
+opportunity_label.pack(anchor="w", pady=(6, 0))
+warning_frame.pack(fill="x", padx=12, pady=8)
 show_protected_squares = tk.BooleanVar(value=False)
+auto_analyze_enabled = tk.BooleanVar(value=False)
 protected_color = tk.StringVar(value="white")
 protected_toggle = tk.Checkbutton(
     window,
     text="Show Protected Squares",
     variable=show_protected_squares,
 )
+auto_analyze_toggle = tk.Checkbutton(
+    window,
+    text="Auto Analyze",
+    variable=auto_analyze_enabled,
+    command=toggle_auto_analyze,
+)
+
+auto_analyze_toggle.pack(pady=4)
 protected_color_frame = tk.Frame(window)
 
 tk.Radiobutton(
