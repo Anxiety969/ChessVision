@@ -19,6 +19,7 @@ from vision import (
     rook_attacks,
     bishop_attacks,
     queen_attacks,
+    piece_attacks,
 
 )   
 
@@ -311,53 +312,6 @@ def analyze_board():
                 recognized_position[square_name] = piece_symbols[piece_name]
 
                 print(square_name, piece_name, f"{score:.3f}")
-    print(f"Recognized {len(recognized_position)} occupied squares.")
-    for square_name, symbol in recognized_position.items():
-        if symbol.lower() == "n":
-            print(
-                f"Knight on {square_name} attacks:",
-                knight_attacks(square_name),
-            )
-    for square_name, symbol in recognized_position.items():
-        if symbol.lower() == "k":
-            print(
-                f"King on {square_name} attacks:",
-                king_attacks(square_name),
-            )
-    for square_name, symbol in recognized_position.items():
-        if symbol.lower() == "p":
-            print(
-                f"Pawn on {square_name} attacks:",
-                pawn_attacks(square_name, symbol),
-            )
-    for square_name, symbol in recognized_position.items():
-        if symbol.lower() == "r":
-            print(
-                f"Rook on {square_name} attacks:",
-                rook_attacks(
-                    square_name,
-                    recognized_position,
-            )
-            )
-    for square_name, symbol in recognized_position.items():
-        if symbol.lower() == "b":
-            print(
-                f"Bishop on {square_name} attacks:",
-            bishop_attacks(
-                square_name,
-                recognized_position,
-            ),
-            )
-           
-    for square_name, symbol in recognized_position.items():
-        if symbol.lower() == "q":
-            print(
-            f"Queen on {square_name} attacks:",
-            queen_attacks(
-                square_name,
-                recognized_position,
-            ),
-        )
     for rank in ranks:
         row_symbols = []
 
@@ -367,6 +321,15 @@ def analyze_board():
             row_symbols.append(symbol)
 
         print(" ".join(row_symbols))
+    for square_name, symbol in recognized_position.items():
+        print(
+            f"{symbol} on {square_name} attacks:",
+            piece_attacks(
+                square_name,
+                symbol,
+                recognized_position,
+            ),
+        )
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),

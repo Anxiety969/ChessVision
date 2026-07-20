@@ -260,3 +260,25 @@ def sliding_attacks(square_name, directions, occupied_squares):
             target_column += column_change
 
     return attacked_squares
+def piece_attacks(square_name, symbol, occupied_squares):
+    piece_type = symbol.lower()
+
+    if piece_type == "n":
+        return knight_attacks(square_name)
+
+    if piece_type == "k":
+        return king_attacks(square_name)
+
+    if piece_type == "p":
+        return pawn_attacks(square_name, symbol)
+
+    if piece_type == "r":
+        return rook_attacks(square_name, occupied_squares)
+
+    if piece_type == "b":
+        return bishop_attacks(square_name, occupied_squares)
+
+    if piece_type == "q":
+        return queen_attacks(square_name, occupied_squares)
+
+    return []
