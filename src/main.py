@@ -278,7 +278,7 @@ def analyze_board():
     board_y:board_y + board_height,
     board_x:board_x + board_width,
 ]
-    display_board = cv2.resize(board, (320, 320))
+    display_board = cv2.resize(board, (BOARD_DISPLAY_SIZE, BOARD_DISPLAY_SIZE))
 
     board_image = Image.fromarray(display_board)
     board_photo = ImageTk.PhotoImage(board_image)
@@ -290,10 +290,10 @@ def analyze_board():
         file_index = ord(square_name[0]) - ord("a")
         rank_index = 8 - int(square_name[1])
 
-        x1 = file_index * 40 + 2
-        y1 = rank_index * 40 + 2
-        x2 = x1 + 36
-        y2 = y1 + 36
+        x1 = file_index * SQUARE_DISPLAY_SIZE + 3
+        y1 = rank_index * SQUARE_DISPLAY_SIZE + 3
+        x2 = x1 + SQUARE_DISPLAY_SIZE - 6
+        y2 = y1 + SQUARE_DISPLAY_SIZE - 6
 
         board_canvas.create_oval(
             x1,
@@ -310,7 +310,7 @@ def analyze_board():
             event.y,
             0,
             0,
-            40,
+            SQUARE_DISPLAY_SIZE,
         )
 
         options = selected_piece_options(
@@ -322,16 +322,16 @@ def analyze_board():
             file_index = ord(chess_square[0]) - ord("a")
             rank_index = 8 - int(chess_square[1])
 
-            x1 = file_index * 40
-            y1 = rank_index * 40
-            x2 = x1 + 40
-            y2 = y1 + 40
+            x1 = file_index * SQUARE_DISPLAY_SIZE
+            y1 = rank_index * SQUARE_DISPLAY_SIZE
+            x2 = x1 + SQUARE_DISPLAY_SIZE
+            y2 = y1 + SQUARE_DISPLAY_SIZE
 
             board_canvas.create_oval(
-                x1 + 17,
-                y1 + 17,
-                x2 - 17,
-                y2 - 17,
+                x1 + SQUARE_DISPLAY_SIZE * 0.40,
+                y1 + SQUARE_DISPLAY_SIZE * 0.40,
+                x2 - SQUARE_DISPLAY_SIZE * 0.40,
+                y2 - SQUARE_DISPLAY_SIZE * 0.40,
                 fill=outline,
                 outline="",
                 tags="move_highlight",
@@ -366,10 +366,10 @@ def analyze_board():
             file_index = ord(chess_square[0]) - ord("a")
             rank_index = 8 - int(chess_square[1])
 
-            x1 = file_index * 40
-            y1 = rank_index * 40
-            x2 = x1 + 40
-            y2 = y1 + 40
+            x1 = file_index * SQUARE_DISPLAY_SIZE
+            y1 = rank_index * SQUARE_DISPLAY_SIZE
+            x2 = x1 + SQUARE_DISPLAY_SIZE
+            y2 = y1 + SQUARE_DISPLAY_SIZE
 
             board_canvas.create_rectangle(
                 x1,
@@ -780,50 +780,48 @@ piece_templates = {
 }
 
 
+BOARD_DISPLAY_SIZE = 440
+SQUARE_DISPLAY_SIZE = BOARD_DISPLAY_SIZE // 8
+
 window = tk.Tk()
 window.title("ChessVision")
-window.geometry("500x980")
-window.minsize(500, 980)
+window.geometry("520x920")
+window.minsize(520, 920)
 window.attributes("-topmost", True)
 
+# Compact heading so the board remains the visual focus.
+header_frame = tk.Frame(window)
+header_frame.pack(fill="x", padx=10, pady=(6, 2))
+
 title_label = tk.Label(
-    window,
+    header_frame,
     text="ChessVision",
-    font=("Arial", 22, "bold"),
+    font=("Arial", 16, "bold"),
 )
-title_label.pack(pady=(10, 4))
+title_label.pack(side="left")
 
 instruction_label = tk.Label(
-    window,
-    text="Leave the board in the starting position.",
-    font=("Arial", 11),
+    header_frame,
+    text="Live board coach",
+    font=("Arial", 9),
+    fg="gray40",
 )
-instruction_label.pack(pady=4)
+instruction_label.pack(side="right")
 
-capture_button = tk.Button(
+# The board is the primary element and appears first.
+board_canvas = tk.Canvas(
     window,
-    text="Create Piece Templates",
-    font=("Arial", 12),
-    command=capture_templates,
-    padx=18,
-    pady=10,
+    width=BOARD_DISPLAY_SIZE,
+    height=BOARD_DISPLAY_SIZE,
+    bg="black",
+    highlightthickness=2,
+    highlightbackground="gray35",
 )
-capture_button.pack(pady=4)
-analyze_button = tk.Button(
-    window,
-    text="Analyze Board",
-    font=("Arial", 12),
-    command=analyze_board,
-    padx=18,
-    pady=10,
-)
+board_canvas.pack(pady=(2, 5))
 
-status_frame = tk.Frame(
-    window,
-    height=48,
-)
-
+status_frame = tk.Frame(window, height=38)
 status_frame.pack_propagate(False)
+status_frame.pack(fill="x", padx=12, pady=(0, 4))
 
 status_label = tk.Label(
     status_frame,
@@ -831,127 +829,44 @@ status_label = tk.Label(
     font=("Arial", 10),
     justify="center",
     anchor="center",
-    wraplength=460,
+    wraplength=490,
 )
-warning_frame = tk.LabelFrame(
-    window,
-    text="Training Warnings",
-    font=("Arial", 11, "bold"),
-    padx=6,
-    pady=6,
-)
+status_label.pack(fill="both", expand=True)
 
-warning_frame.pack(fill="x", padx=12, pady=8)
-analyze_button.pack(
-    before=warning_frame,
-    pady=8,
-)
-
-warning_canvas = tk.Canvas(
-    warning_frame,
-    height=180,
-    highlightthickness=0,
-)
-
-warning_scrollbar = tk.Scrollbar(
-    warning_frame,
-    orient="vertical",
-    command=warning_canvas.yview,
-)
-
-warning_list_frame = tk.Frame(warning_canvas)
-
-warning_list_window = warning_canvas.create_window(
-    (0, 0),
-    window=warning_list_frame,
-    anchor="nw",
-)
-
-warning_canvas.configure(
-    yscrollcommand=warning_scrollbar.set,
-)
-
-warning_canvas.pack(
-    side="left",
-    fill="both",
-    expand=True,
-)
-
-warning_scrollbar.pack(
-    side="right",
-    fill="y",
-)
-
-
-def resize_warning_list(event):
-    warning_canvas.itemconfigure(
-        warning_list_window,
-        width=event.width,
-    )
-
-
-def update_warning_scroll_region(event=None):
-    warning_canvas.configure(
-        scrollregion=warning_canvas.bbox("all"),
-    )
-
-
-warning_canvas.bind(
-    "<Configure>",
-    resize_warning_list,
-)
-
-warning_list_frame.bind(
-    "<Configure>",
-    update_warning_scroll_region,
-)
-danger_label = tk.Label(
-    warning_list_frame,
-    text="No immediate danger detected.",
-    font=("Arial", 12, "bold"),
-    fg="darkred",
-    justify="left",
-    anchor="w",
-    wraplength=300,
-)
-
-danger_label.pack(
-    fill="x",
-    anchor="w",
-)
-
-opportunity_label = tk.Label(
-    warning_list_frame,
-    text="No immediate opportunity detected.",
-    font=("Arial", 12, "bold"),
-    fg="darkgreen",
-    justify="left",
-    anchor="w",
-    wraplength=300,
-)
-
-opportunity_label.pack(
-    fill="x",
-    anchor="w",
-    pady=(6, 0),
-)
 show_protected_squares = tk.BooleanVar(value=False)
 auto_analyze_enabled = tk.BooleanVar(value=False)
 protected_color = tk.StringVar(value="white")
-protected_toggle = tk.Checkbutton(
-    window,
-    text="Show Protected Squares",
-    variable=show_protected_squares,
+
+controls_frame = tk.Frame(window)
+controls_frame.pack(fill="x", padx=12, pady=(0, 5))
+
+analyze_button = tk.Button(
+    controls_frame,
+    text="Analyze Board",
+    font=("Arial", 11, "bold"),
+    command=analyze_board,
+    padx=12,
+    pady=5,
 )
+analyze_button.pack(side="left", padx=(0, 8))
+
 auto_analyze_toggle = tk.Checkbutton(
-    window,
+    controls_frame,
     text="Auto Analyze",
     variable=auto_analyze_enabled,
     command=toggle_auto_analyze,
 )
+auto_analyze_toggle.pack(side="left", padx=(0, 8))
 
-auto_analyze_toggle.pack(pady=4)
+protected_toggle = tk.Checkbutton(
+    controls_frame,
+    text="Protected Squares",
+    variable=show_protected_squares,
+)
+protected_toggle.pack(side="left")
+
 protected_color_frame = tk.Frame(window)
+protected_color_frame.pack(pady=(0, 5))
 
 tk.Radiobutton(
     protected_color_frame,
@@ -959,9 +874,9 @@ tk.Radiobutton(
     variable=protected_color,
     value="white",
     command=lambda: (
-    protected_toggle.invoke(),
-    protected_toggle.invoke(),
-) if show_protected_squares.get() else None,
+        protected_toggle.invoke(),
+        protected_toggle.invoke(),
+    ) if show_protected_squares.get() else None,
 ).pack(side="left")
 
 tk.Radiobutton(
@@ -970,22 +885,80 @@ tk.Radiobutton(
     variable=protected_color,
     value="black",
     command=lambda: (
-    protected_toggle.invoke(),
-    protected_toggle.invoke(),
-) if show_protected_squares.get() else None,
+        protected_toggle.invoke(),
+        protected_toggle.invoke(),
+    ) if show_protected_squares.get() else None,
 ).pack(side="left")
-protected_toggle.pack(pady=4)
-protected_color_frame.pack(pady=2)
-status_frame.pack(fill="x", padx=12, pady=3)
-status_label.pack(fill="both", expand=True)
-board_canvas = tk.Canvas(
-    window,
-    width=320,
-    height=320,
-    bg="black",
-    highlightthickness=1,
-    highlightbackground="gray",
+
+# Separate fixed-height, scrollable panes for danger and opportunity text.
+message_row = tk.Frame(window)
+message_row.pack(fill="both", expand=True, padx=10, pady=(0, 8))
+message_row.grid_columnconfigure(0, weight=1)
+message_row.grid_columnconfigure(1, weight=1)
+message_row.grid_rowconfigure(0, weight=1)
+
+warning_frame = tk.LabelFrame(
+    message_row,
+    text="Warnings!",
+    font=("Arial", 11, "bold"),
+    padx=4,
+    pady=4,
 )
-board_canvas.pack(pady=4)
+warning_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+
+opportunity_frame = tk.LabelFrame(
+    message_row,
+    text="Opportunities!",
+    font=("Arial", 11, "bold"),
+    padx=4,
+    pady=4,
+)
+opportunity_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+
+
+def build_scrollable_message_box(parent):
+    canvas = tk.Canvas(parent, height=150, highlightthickness=0)
+    scrollbar = tk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+    content = tk.Frame(canvas)
+    content_window = canvas.create_window((0, 0), window=content, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    def resize_content(event):
+        canvas.itemconfigure(content_window, width=event.width)
+
+    def update_scroll_region(event=None):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    canvas.bind("<Configure>", resize_content)
+    content.bind("<Configure>", update_scroll_region)
+    return content
+
+
+warning_list_frame = build_scrollable_message_box(warning_frame)
+opportunity_list_frame = build_scrollable_message_box(opportunity_frame)
+
+danger_label = tk.Label(
+    warning_list_frame,
+    text="No immediate danger detected.",
+    font=("Arial", 10, "bold"),
+    fg="darkgreen",
+    justify="left",
+    anchor="nw",
+    wraplength=205,
+)
+danger_label.pack(fill="x", anchor="w")
+
+opportunity_label = tk.Label(
+    opportunity_list_frame,
+    text="No immediate opportunity detected.",
+    font=("Arial", 10, "bold"),
+    fg="gray40",
+    justify="left",
+    anchor="nw",
+    wraplength=205,
+)
+opportunity_label.pack(fill="x", anchor="w")
 
 window.mainloop()
