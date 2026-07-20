@@ -31,6 +31,7 @@ from vision import (
     legal_moves_for_piece,
     legal_move_details,
     legal_captures_for_piece,
+    all_legal_moves,
 
 )   
 
@@ -435,6 +436,21 @@ def analyze_board():
         "e2",
     ),
 )
+    print(
+    "All white legal moves:",
+    all_legal_moves(
+        recognized_position,
+        True,
+    ),
+)
+
+    print(
+    "All black legal moves:",
+    all_legal_moves(
+        recognized_position,
+        False,
+    ),
+)
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),
@@ -460,6 +476,7 @@ piece_templates = {
 window = tk.Tk()
 window.title("ChessVision")
 window.geometry("500x360")
+selected_square = None
 
 title_label = tk.Label(
     window,

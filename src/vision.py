@@ -524,3 +524,16 @@ def legal_captures_for_piece(
         recognized_position,
         square_name,
     )["captures"]
+def all_legal_moves(recognized_position, white):
+    all_moves = {}
+
+    for square_name, symbol in recognized_position.items():
+        if symbol.isupper() != white:
+            continue
+
+        all_moves[square_name] = legal_move_details(
+            recognized_position,
+            square_name,
+        )
+
+    return all_moves
