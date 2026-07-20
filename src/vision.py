@@ -282,3 +282,19 @@ def piece_attacks(square_name, symbol, occupied_squares):
         return queen_attacks(square_name, occupied_squares)
 
     return []
+def color_attacks(recognized_position, white):
+    attacked_squares = set()
+
+    for square_name, symbol in recognized_position.items():
+        if symbol.isupper() != white:
+            continue
+
+        attacked_squares.update(
+            piece_attacks(
+                square_name,
+                symbol,
+                recognized_position,
+            )
+        )
+
+    return attacked_squares

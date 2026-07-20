@@ -20,6 +20,7 @@ from vision import (
     bishop_attacks,
     queen_attacks,
     piece_attacks,
+    color_attacks,
 
 )   
 
@@ -330,6 +331,15 @@ def analyze_board():
                 recognized_position,
             ),
         )
+    print(
+    "White attacks:",
+    sorted(color_attacks(recognized_position, True)),
+    )
+
+    print(
+        "Black attacks:",
+        sorted(color_attacks(recognized_position, False)),
+    )    
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),
