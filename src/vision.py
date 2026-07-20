@@ -383,6 +383,31 @@ def attacked_pieces(recognized_position, white):
         recognized_position,
         not white,
     )
+def hanging_pieces(recognized_position, white):
+    hanging = []
+
+    enemy_attacks = color_attacks(
+        recognized_position,
+        not white,
+    )
+
+    friendly_defenses = color_attacks(
+        recognized_position,
+        white,
+    )
+
+    for square_name, symbol in recognized_position.items():
+        if symbol.isupper() != white:
+            continue
+        if symbol.lower() == "k":
+            continue
+        if (
+            square_name in enemy_attacks
+            and square_name not in friendly_defenses
+        ):
+            hanging.append((square_name, symbol))
+
+    return hanging
 
     for square_name, symbol in recognized_position.items():
         if symbol.isupper() != white:

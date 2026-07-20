@@ -26,6 +26,7 @@ from vision import (
     checking_pieces,
     available_captures,
     attacked_pieces,
+    hanging_pieces,
     make_move,
     move_is_legal,
     pinned_pieces,
@@ -478,7 +479,15 @@ def analyze_board():
         "Black pieces under attack:",
         attacked_pieces(recognized_position, False),
     )
+    print(
+    "White hanging pieces:",
+    hanging_pieces(recognized_position, True),
+)
 
+    print(
+    "Black hanging pieces:",
+    hanging_pieces(recognized_position, False),
+) 
     print(
     "Test move e2 to d2 legal:",
     move_is_legal(
