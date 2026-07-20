@@ -293,8 +293,6 @@ def analyze_board():
             square,
         )
         board_canvas.delete("move_highlight")
-        board_canvas.delete("move_highlight")
-
         def highlight_square(chess_square, outline, width):
             file_index = ord(chess_square[0]) - ord("a")
             rank_index = 8 - int(chess_square[1])
@@ -304,13 +302,13 @@ def analyze_board():
             x2 = x1 + 40
             y2 = y1 + 40
 
-            board_canvas.create_rectangle(
-                x1,
-                y1,
-                x2,
-                y2,
-                outline=outline,
-                width=width,
+            board_canvas.create_oval(
+                x1 + 17,
+                y1 + 17,
+                x2 - 17,
+                y2 - 17,
+                fill=outline,
+                outline="",
                 tags="move_highlight",
             )
 
@@ -337,8 +335,9 @@ def analyze_board():
             recognized_position,
             True,
         )
-
         for chess_square in protected_squares:
+            if chess_square in recognized_position:
+                continue
             file_index = ord(chess_square[0]) - ord("a")
             rank_index = 8 - int(chess_square[1])
 
@@ -354,8 +353,8 @@ def analyze_board():
                 y2,
                 fill="#4da6ff",
                 stipple="gray50",
-                outline="#0066ff",
-                width=2,
+                outline="#2f6fa8",
+                width=1,
                 tags="protected_highlight",
             )
 
