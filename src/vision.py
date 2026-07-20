@@ -175,7 +175,19 @@ def pawn_attacks(square_name, symbol):
 
     return attacked_squares
 
-def rook_attacks(square_name):
+def rook_attacks(square_name, occupied_squares):
+    directions = (
+        (-1, 0),
+        (1, 0),
+        (0, -1),
+        (0, 1),
+    )
+
+    return sliding_attacks(
+        square_name,
+        directions,
+        occupied_squares,
+    )
     row, column = square_to_coordinates(square_name)
 
     attacked_squares = []
@@ -203,11 +215,7 @@ def rook_attacks(square_name):
             target_column += column_change
 
     return attacked_squares
-def bishop_attacks(square_name):
-    row, column = square_to_coordinates(square_name)
-
-    attacked_squares = []
-
+def bishop_attacks(square_name, occupied_squares):
     directions = (
         (-1, -1),
         (-1, 1),
@@ -215,21 +223,40 @@ def bishop_attacks(square_name):
         (1, 1),
     )
 
+    return sliding_attacks(
+        square_name,
+        directions,
+        occupied_squares,
+    )
+def queen_attacks(square_name, occupied_squares):
+    return rook_attacks(
+        square_name,
+        occupied_squares,
+    ) + bishop_attacks(
+        square_name,
+        occupied_squares,
+    )
+def sliding_attacks(square_name, directions, occupied_squares):
+    row, column = square_to_coordinates(square_name)
+
+    attacked_squares = []
+
     for row_change, column_change in directions:
         target_row = row + row_change
         target_column = column + column_change
 
         while 0 <= target_row < 8 and 0 <= target_column < 8:
-            attacked_squares.append(
-                coordinates_to_square(
-                    target_row,
-                    target_column,
-                )
+            target_square = coordinates_to_square(
+                target_row,
+                target_column,
             )
+
+            attacked_squares.append(target_square)
+
+            if target_square in occupied_squares:
+                break
 
             target_row += row_change
             target_column += column_change
 
     return attacked_squares
-def queen_attacks(square_name):
-    return rook_attacks(square_name) + bishop_attacks(square_name)

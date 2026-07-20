@@ -19,6 +19,7 @@ from vision import (
     rook_attacks,
     bishop_attacks,
     queen_attacks,
+
 )   
 
 
@@ -333,20 +334,30 @@ def analyze_board():
         if symbol.lower() == "r":
             print(
                 f"Rook on {square_name} attacks:",
-                rook_attacks(square_name),
+                rook_attacks(
+                    square_name,
+                    recognized_position,
+            )
             )
     for square_name, symbol in recognized_position.items():
         if symbol.lower() == "b":
             print(
                 f"Bishop on {square_name} attacks:",
-                bishop_attacks(square_name),
+            bishop_attacks(
+                square_name,
+                recognized_position,
+            ),
             )
+           
     for square_name, symbol in recognized_position.items():
         if symbol.lower() == "q":
             print(
-                f"Queen on {square_name} attacks:",
-                queen_attacks(square_name),
-            )                
+            f"Queen on {square_name} attacks:",
+            queen_attacks(
+                square_name,
+                recognized_position,
+            ),
+        )
     for rank in ranks:
         row_symbols = []
 
