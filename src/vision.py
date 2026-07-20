@@ -296,5 +296,23 @@ def color_attacks(recognized_position, white):
                 recognized_position,
             )
         )
-
     return attacked_squares
+def king_in_check(recognized_position, white):
+    king_symbol = "K" if white else "k"
+
+    king_square = None
+
+    for square_name, symbol in recognized_position.items():
+        if symbol == king_symbol:
+            king_square = square_name
+            break
+
+    if king_square is None:
+        return False
+
+    opponent_attacks = color_attacks(
+        recognized_position,
+        not white,
+    )
+
+    return king_square in opponent_attacks
