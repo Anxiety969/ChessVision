@@ -545,3 +545,25 @@ def selected_piece_options(
         recognized_position,
         square_name,
     )
+def pixel_to_square(
+    x,
+    y,
+    board_x,
+    board_y,
+    square_size,
+):
+    file_index = int((x - board_x) // square_size)
+    rank_index = int((y - board_y) // square_size)
+
+    files = "abcdefgh"
+
+    if file_index < 0 or file_index > 7:
+        return None
+
+    if rank_index < 0 or rank_index > 7:
+        return None
+
+    file_name = files[file_index]
+    rank_name = str(8 - rank_index)
+
+    return file_name + rank_name

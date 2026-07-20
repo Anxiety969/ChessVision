@@ -33,6 +33,7 @@ from vision import (
     legal_captures_for_piece,
     all_legal_moves,
     selected_piece_options,
+    pixel_to_square,
 
 )   
 
@@ -457,6 +458,16 @@ def analyze_board():
     selected_piece_options(
         recognized_position,
         "e2",
+    ),
+)
+    print(
+    "Pixel test:",
+    pixel_to_square(
+        900,
+        300,
+        826,
+        281,
+        213,
     ),
 )
 piece_templates = {
