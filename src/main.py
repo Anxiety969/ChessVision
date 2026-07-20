@@ -27,6 +27,7 @@ from vision import (
     attacked_pieces,
     make_move,
     move_is_legal,
+    pinned_pieces,
 
 )   
 
@@ -400,7 +401,16 @@ def analyze_board():
     "e2",
     "d2",
     ),
-)   
+)
+    print(
+    "White pinned pieces:",
+    pinned_pieces(recognized_position, True),
+)
+
+    print(
+    "Black pinned pieces:",
+    pinned_pieces(recognized_position, False),
+)    
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),

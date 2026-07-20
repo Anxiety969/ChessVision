@@ -421,3 +421,31 @@ def move_is_legal(
         test_position,
         white,
     )
+def pinned_pieces(recognized_position, white):
+    pinned = []
+
+    for square_name, symbol in recognized_position.items():
+        if symbol.isupper() != white:
+            continue
+
+        if symbol.lower() == "k":
+            continue
+
+        attacks = piece_attacks(
+            square_name,
+            symbol,
+            recognized_position,
+        )
+
+        for target_square in attacks:
+            if move_is_legal(
+                recognized_position,
+                square_name,
+                target_square,
+            ):
+                continue
+
+            pinned.append((square_name, symbol))
+            break
+
+    return pinned
