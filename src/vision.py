@@ -537,3 +537,11 @@ def all_legal_moves(recognized_position, white):
         )
 
     return all_moves
+def selected_piece_options(
+    recognized_position,
+    square_name,
+):
+    return legal_move_details(
+        recognized_position,
+        square_name,
+    )

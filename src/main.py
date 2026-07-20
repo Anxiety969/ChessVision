@@ -32,6 +32,7 @@ from vision import (
     legal_move_details,
     legal_captures_for_piece,
     all_legal_moves,
+    selected_piece_options,
 
 )   
 
@@ -449,6 +450,13 @@ def analyze_board():
     all_legal_moves(
         recognized_position,
         False,
+    ),
+)
+    print(
+    "Selected piece options e2:",
+    selected_piece_options(
+        recognized_position,
+        "e2",
     ),
 )
 piece_templates = {
