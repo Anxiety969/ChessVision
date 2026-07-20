@@ -136,7 +136,7 @@ def capture_templates():
                 continue
 
             piece_name = STARTING_PIECES[square_name]
-            if piece_name.endswith("_pawn"):
+            if piece_name.endswith(("_pawn", "_rook", "_knight", "_bishop")):
                 square_color = (
                     "light"
                     if (row + column) % 2 == 0
@@ -260,6 +260,20 @@ def analyze_board():
 
     print("Ready to scan all 64 squares.")
     recognized_position = {}
+    piece_symbols = {
+    "white_king": "K",
+    "white_queen": "Q",
+    "white_rook": "R",
+    "white_bishop": "B",
+    "white_knight": "N",
+    "white_pawn": "P",
+    "black_king": "k",
+    "black_queen": "q",
+    "black_rook": "r",
+    "black_bishop": "b",
+    "black_knight": "n",
+    "black_pawn": "p",
+}
     for row in range(8):
         for column in range(8):
             square_name = f"{files[column]}{ranks[row]}"
@@ -285,23 +299,34 @@ def analyze_board():
             if score < 0.50:
                 print(square_name, "empty", f"{score:.3f}")
             else:
-                recognized_position[square_name] = piece_name
+                recognized_position[square_name] = piece_symbols[piece_name]
 
                 print(square_name, piece_name, f"{score:.3f}")
     print(f"Recognized {len(recognized_position)} occupied squares.")
+    for rank in ranks:
+        row_symbols = []
+
+        for file in files:
+            square_name = f"{file}{rank}"
+            symbol = recognized_position.get(square_name, ".")
+            row_symbols.append(symbol)
+
+        print(" ".join(row_symbols))
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),
 "white_knight": load_template("white_knight"),
 "white_bishop": load_template("white_bishop"),
-"white_rook": load_template("white_rook"),
+"white_rook_light": load_template("white_rook_light"),
+"white_rook_dark": load_template("white_rook_dark"),
 "white_queen": load_template("white_queen"),
 "white_king": load_template("white_king"),
 "black_pawn_light": load_template("black_pawn_light"),
 "black_pawn_dark": load_template("black_pawn_dark"),
 "black_knight": load_template("black_knight"),
 "black_bishop": load_template("black_bishop"),
-"black_rook": load_template("black_rook"),
+"black_rook_light": load_template("black_rook_light"),
+"black_rook_dark": load_template("black_rook_dark"),
 "black_queen": load_template("black_queen"),
 "black_king": load_template("black_king"),
 }
