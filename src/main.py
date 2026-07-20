@@ -9,6 +9,7 @@ from vision import (
     capture_screen,
     compare_images,
     create_board_mask,
+    identify_piece,
     load_template,
 )
 
@@ -112,7 +113,10 @@ def capture_templates():
         board_y:board_y + board_height,
         board_x:board_x + board_width,
     ]
-
+    board_bgr = cv2.cvtColor(
+    board,
+    cv2.COLOR_RGB2BGR,
+)
     square_width = board_width / 8
     square_height = board_height / 8
 

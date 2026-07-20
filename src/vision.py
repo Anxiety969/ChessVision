@@ -68,3 +68,21 @@ def load_template(template_name):
     )
 
     return cv2.imread(str(template_path))
+def identify_piece(square_image, piece_templates):
+    best_piece = None
+    best_score = -1
+
+    for piece_name, template in piece_templates.items():
+        if template is None:
+            continue
+
+        score = compare_images(
+            square_image,
+            template,
+        )
+
+        if score > best_score:
+            best_score = score
+            best_piece = piece_name
+
+    return best_piece, best_score
