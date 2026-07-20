@@ -398,4 +398,26 @@ def make_move(recognized_position, from_square, to_square):
     moving_piece = new_position.pop(from_square)
     new_position[to_square] = moving_piece
 
-    return new_position
+    return new_position 
+def move_is_legal(
+    recognized_position,
+    from_square,
+    to_square,
+):
+    moving_piece = recognized_position.get(from_square)
+
+    if moving_piece is None:
+        return False
+
+    white = moving_piece.isupper()
+
+    test_position = make_move(
+        recognized_position,
+        from_square,
+        to_square,
+    )
+
+    return not king_in_check(
+        test_position,
+        white,
+    )

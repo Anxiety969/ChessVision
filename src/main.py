@@ -26,6 +26,7 @@ from vision import (
     available_captures,
     attacked_pieces,
     make_move,
+    move_is_legal,
 
 )   
 
@@ -391,7 +392,15 @@ def analyze_board():
         "Test move e2 to e4:",
         test_position.get("e2"),
         test_position.get("e4"),
-    )   
+    )
+    print(
+    "Test move e2 to e4 legal:",
+    move_is_legal(
+    recognized_position,
+    "e2",
+    "e4",
+    ),
+)   
 piece_templates = {
 "white_pawn_light": load_template("white_pawn_light"),
 "white_pawn_dark": load_template("white_pawn_dark"),
