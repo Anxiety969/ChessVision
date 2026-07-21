@@ -5,6 +5,8 @@ from PIL import Image, ImageTk
 
 import cv2
 import numpy as np
+import chess
+import chess.engine
 
 from vision import (
     capture_screen,
@@ -211,6 +213,160 @@ def capture_templates():
     )
 last_analyzed_position = None
 current_mode = "live"
+
+
+PIECE_VALUES = {"p": 1, "n": 3, "b": 3, "r": 5, "q": 9, "k": 100}
+PIECE_LETTERS = {"p": "", "n": "N", "b": "B", "r": "R", "q": "Q", "k": "K"}
+
+
+def move_name(position, from_square, to_square):
+    piece = position[from_square]
+    capture = to_square in position
+    prefix = PIECE_LETTERS[piece.lower()]
+    if piece.lower() == "p" and capture:
+        prefix = from_square[0]
+    return f"{prefix}{'x' if capture else ''}{to_square}"
+
+
+def quick_move_tiers(position, white):
+    """Return fast, human-readable candidate moves without deep engine search."""
+    candidates = []
+    center = {"d4", "e4", "d5", "e5"}
+    development_targets = {"c3", "f3", "c6", "f6", "c4", "f4", "c5", "f5"}
+
+    for from_square, details in all_legal_moves(position, white).items():
+        piece = position[from_square]
+        for to_square in details["moves"] + [sq for sq, _ in details["captures"]]:
+            captured = position.get(to_square)
+            next_position = make_move(position, from_square, to_square)
+            enemy_attacks = color_attacks(next_position, not white)
+            safe = to_square not in enemy_attacks
+            gives_check = king_in_check(next_position, not white)
+
+            score = 0.0
+            reasons = []
+            if captured:
+                gain = PIECE_VALUES[captured.lower()]
+                cost = PIECE_VALUES[piece.lower()]
+                score += gain * 3
+                reasons.append(f"wins or trades for the {piece_names_for_tiers[captured.lower()]}")
+                if safe:
+                    score += 2
+                elif gain < cost:
+                    score -= (cost - gain) * 3
+            if gives_check:
+                score += 4
+                reasons.append("gives check")
+            if to_square in center:
+                score += 1.5
+                reasons.append("improves central control")
+            if piece.lower() in {"n", "b"} and from_square[1] in {"1", "8"} and to_square in development_targets:
+                score += 1.25
+                reasons.append("develops a piece")
+            if safe:
+                score += 1
+            else:
+                score -= PIECE_VALUES[piece.lower()] * 0.8
+
+            candidates.append({
+                "from": from_square,
+                "to": to_square,
+                "name": move_name(position, from_square, to_square),
+                "score": score,
+                "safe": safe,
+                "forcing": bool(captured or gives_check),
+                "reason": reasons[0] if reasons else ("keeps the piece safe" if safe else "creates activity"),
+            })
+
+    candidates.sort(key=lambda item: item["score"], reverse=True)
+    if not candidates:
+        return []
+
+    chosen = []
+    best = candidates[0]
+    chosen.append(("Best move", best))
+
+    safer = next((m for m in candidates if m["safe"] and m["name"] != best["name"]), None)
+    if safer:
+        chosen.append(("Safer alternative", safer))
+
+    aggressive = next((m for m in candidates if m["forcing"] and m["name"] not in {x[1]["name"] for x in chosen}), None)
+    if aggressive:
+        chosen.append(("Aggressive alternative", aggressive))
+
+    return chosen[:3]
+
+
+piece_names_for_tiers = {
+    "p": "pawn", "n": "knight", "b": "bishop",
+    "r": "rook", "q": "queen", "k": "king",
+}
+STOCKFISH_PATH = r"C:\Users\joshu\AppData\Local\Microsoft\WinGet\Packages\Stockfish.Stockfish_Microsoft.Winget.Source_8wekyb3d8bbwe\stockfish\stockfish-windows-x86-64-avx2.exe"
+
+def stockfish_top_moves(position, white, count=3):
+    """Return Stockfish's top legal moves for the recognized position."""
+    board = chess.Board(None)
+
+    for square_name, symbol in position.items():
+        try:
+            square = chess.parse_square(square_name)
+            piece = chess.Piece.from_symbol(symbol)
+        except (ValueError, TypeError):
+            continue
+        board.set_piece_at(square, piece)
+
+    board.turn = chess.WHITE if white else chess.BLACK
+    board.castling_rights = chess.BB_EMPTY
+    board.ep_square = None
+    board.halfmove_clock = 0
+    board.fullmove_number = 1
+
+    if board.king(chess.WHITE) is None or board.king(chess.BLACK) is None:
+        return [], "Engine unavailable: both kings must be recognized."
+
+    legal_count = board.legal_moves.count()
+    if legal_count == 0:
+        if board.is_checkmate():
+            return [], "Checkmate — there are no legal moves."
+        return [], "Stalemate — there are no legal moves."
+
+    try:
+        with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
+            results = engine.analyse(
+                board,
+                chess.engine.Limit(depth=14),
+                multipv=min(count, legal_count),
+            )
+    except (OSError, chess.engine.EngineError, chess.engine.EngineTerminatedError) as error:
+        return [], f"Stockfish error: {error}"
+
+    if isinstance(results, dict):
+        results = [results]
+
+    moves = []
+    for result in results:
+        principal_variation = result.get("pv", [])
+        if not principal_variation:
+            continue
+
+        move = principal_variation[0]
+        san = board.san(move)
+        score = result["score"].pov(board.turn)
+
+        mate_in = score.mate()
+        if mate_in is not None:
+            evaluation = f"mate in {abs(mate_in)}" if mate_in > 0 else f"mated in {abs(mate_in)}"
+        else:
+            centipawns = score.score()
+            evaluation = f"{centipawns / 100:+.2f}" if centipawns is not None else "unclear"
+
+        moves.append({
+            "san": san,
+            "uci": move.uci(),
+            "evaluation": evaluation,
+        })
+
+    return moves, None
 
 def analyze_board():
     global last_analyzed_position, current_mode
@@ -453,7 +609,8 @@ def analyze_board():
                 recognized_position[square_name] = piece_symbols[piece_name]
 
                 print(square_name, piece_name, f"{score:.3f}")
-                current_position = tuple(sorted(recognized_position.items()))
+
+    current_position = tuple(sorted(recognized_position.items()))
 
     if (
         auto_analyze_enabled.get()
@@ -735,6 +892,52 @@ def analyze_board():
             f"{square_name} is under-defended.\n"
             f"Attacked by: {attacker_names}"
         )
+
+    # Ask Stockfish for the three strongest legal moves in the position.
+    tier_lines = []
+    engine_moves, engine_error = stockfish_top_moves(
+        recognized_position,
+        playing_white,
+        count=3,
+    )
+
+    if engine_moves:
+        tier_lines.append("STOCKFISH — TOP 3 MOVES")
+        for index, move in enumerate(engine_moves, start=1):
+            tier_lines.append(
+                f"{index}. {move['san']}  ({move['evaluation']})"
+            )
+    elif engine_error:
+        tier_lines.append(engine_error)
+
+    sound_forks = []
+    for fork in your_knight_forks:
+        start_square, target_square, attacked_targets = fork
+        fork_position = make_move(recognized_position, start_square, target_square)
+        destination_safe = target_square not in color_attacks(fork_position, not playing_white)
+        target_value = sum(PIECE_VALUES[symbol.lower()] for _, symbol in attacked_targets)
+        if destination_safe or target_value > PIECE_VALUES["n"]:
+            sound_forks.append(fork)
+
+    if sound_forks:
+        first_fork = sound_forks[0]
+        fork_move = move_name(recognized_position, first_fork[0], first_fork[1])
+        tier_lines.append(f"Tactical line: {fork_move} creates a fork worth examining.")
+
+    if your_hanging:
+        square_name, symbol = your_hanging[0]
+        tier_lines.append(
+            f"If you ignore the threat: your {piece_names[symbol.lower()]} on "
+            f"{square_name} can be captured."
+        )
+    elif your_under_defended:
+        square_name, symbol, _ = your_under_defended[0]
+        tier_lines.append(
+            f"If you ignore the threat: your {piece_names[symbol.lower()]} on "
+            f"{square_name} may be lost in an unfavorable trade."
+        )
+
+    opportunity_lines = tier_lines + opportunity_lines
 
     danger_label.config(
         text="\n\n".join(danger_lines)
