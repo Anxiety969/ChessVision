@@ -135,6 +135,7 @@ def capture_templates():
 
     if not candidates:
         status_label.config(text="No board found.")
+        analysis_in_progress = False
         return
 
     candidates.sort(reverse=True)
@@ -311,6 +312,47 @@ ENGINE_RESULTS = queue.Queue()
 _stockfish_engine = None
 analysis_generation = 0
 latest_opportunity_lines = []
+engine_job_pending = False
+analysis_in_progress = False
+current_warning_highlights = {
+    "your_hanging": [],
+    "enemy_hanging": [],
+    "your_threatened": [],
+    "enemy_threatened": [],
+}
+
+
+def mark_piece(square_name, outline, shape="oval", width=4, dash=None):
+    """Draw one warning marker on the mini board."""
+    file_index = ord(square_name[0]) - ord("a")
+    rank_index = 8 - int(square_name[1])
+
+    x1 = file_index * SQUARE_DISPLAY_SIZE + 3
+    y1 = rank_index * SQUARE_DISPLAY_SIZE + 3
+    x2 = x1 + SQUARE_DISPLAY_SIZE - 6
+    y2 = y1 + SQUARE_DISPLAY_SIZE - 6
+
+    draw = board_canvas.create_oval if shape == "oval" else board_canvas.create_rectangle
+    draw(
+        x1, y1, x2, y2,
+        outline=outline,
+        width=width,
+        dash=dash,
+        tags="warning_highlight",
+    )
+
+
+def draw_warning_highlights():
+    """Restore the latest warning markers after any board redraw."""
+    board_canvas.delete("warning_highlight")
+    for square_name in current_warning_highlights["your_hanging"]:
+        mark_piece(square_name, "#ff2d2d", shape="oval", width=5)
+    for square_name in current_warning_highlights["enemy_hanging"]:
+        mark_piece(square_name, "#32cd32", shape="oval", width=5)
+    for square_name in current_warning_highlights["your_threatened"]:
+        mark_piece(square_name, "#ff9f1a", shape="rectangle", width=4, dash=(6, 3))
+    for square_name in current_warning_highlights["enemy_threatened"]:
+        mark_piece(square_name, "#27a9ff", shape="rectangle", width=4, dash=(6, 3))
 
 
 def stockfish_top_moves(position, white, count=3):
@@ -342,22 +384,23 @@ def stockfish_top_moves(position, white, count=3):
             return [], "Checkmate — there are no legal moves."
         return [], "Stalemate — there are no legal moves."
 
-    try:
-        if _stockfish_engine is None:
-            _stockfish_engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
+    if not board.is_valid():
+        return [], "Engine skipped: the recognized board is not a valid chess position."
 
-        results = _stockfish_engine.analyse(
-            board,
-            chess.engine.Limit(time=0.35),
-            multipv=min(count, legal_count),
-        )
-    except (OSError, chess.engine.EngineError, chess.engine.EngineTerminatedError) as error:
-        try:
-            if _stockfish_engine is not None:
-                _stockfish_engine.quit()
-        except Exception:
-            pass
-        _stockfish_engine = None
+    try:
+        # A fresh short-lived engine process prevents one damaged Stockfish
+        # session from poisoning every later analysis. It runs off the UI thread.
+        with chess.engine.SimpleEngine.popen_uci(
+            STOCKFISH_PATH,
+            timeout=3.0,
+        ) as engine:
+            engine.configure({"Threads": 1, "Hash": 32})
+            results = engine.analyse(
+                board,
+                chess.engine.Limit(time=0.30),
+                multipv=min(count, legal_count),
+            )
+    except (OSError, TimeoutError, chess.engine.EngineError, chess.engine.EngineTerminatedError) as error:
         return [], f"Stockfish error: {error}"
 
     if isinstance(results, dict):
@@ -396,21 +439,32 @@ def stockfish_top_moves(position, white, count=3):
 
 
 def request_stockfish_analysis(position, white, generation):
-    """Queue one engine job and return immediately."""
+    """Queue one engine job and return immediately; never stack duplicate jobs."""
+    global engine_job_pending
+    if engine_job_pending:
+        return False
+
+    engine_job_pending = True
     snapshot = dict(position)
 
     def run_engine():
-        moves, error = stockfish_top_moves(snapshot, white, count=3)
-        ENGINE_RESULTS.put((generation, moves, error))
+        try:
+            moves, error = stockfish_top_moves(snapshot, white, count=3)
+            ENGINE_RESULTS.put((generation, moves, error))
+        except Exception as error:
+            ENGINE_RESULTS.put((generation, [], f"Stockfish error: {error}"))
 
     ENGINE_EXECUTOR.submit(run_engine)
+    return True
 
 
 def poll_engine_results():
     """Apply completed engine results safely from Tkinter's UI thread."""
+    global engine_job_pending
     try:
         while True:
             generation, moves, error = ENGINE_RESULTS.get_nowait()
+            engine_job_pending = False
             if generation != analysis_generation:
                 continue
 
@@ -441,6 +495,11 @@ def poll_engine_results():
 def analyze_board():
     global last_analyzed_position, current_mode
     global analysis_generation, latest_opportunity_lines
+    global analysis_in_progress, current_warning_highlights
+
+    if analysis_in_progress:
+        return
+    analysis_in_progress = True
 
     returning_from_practice = current_mode == "practice"
     current_mode = "live"
@@ -503,6 +562,7 @@ def analyze_board():
     print(f"Found {len(candidates)} board candidates.")
     if not candidates:
         status_label.config(text="No board found.")
+        analysis_in_progress = False
         return
 
     candidates.sort(reverse=True)
@@ -526,30 +586,8 @@ def analyze_board():
     board_canvas.delete("all")
     board_canvas.create_image(0, 0, anchor="nw", image=board_photo)
     board_canvas.image = board_photo
-    def mark_piece(square_name, outline, shape="oval", width=4, dash=None):
-        file_index = ord(square_name[0]) - ord("a")
-        rank_index = 8 - int(square_name[1])
+    draw_warning_highlights()
 
-        x1 = file_index * SQUARE_DISPLAY_SIZE + 3
-        y1 = rank_index * SQUARE_DISPLAY_SIZE + 3
-        x2 = x1 + SQUARE_DISPLAY_SIZE - 6
-        y2 = y1 + SQUARE_DISPLAY_SIZE - 6
-
-        draw = (
-            board_canvas.create_oval
-            if shape == "oval"
-            else board_canvas.create_rectangle
-        )
-        draw(
-            x1,
-            y1,
-            x2,
-            y2,
-            outline=outline,
-            width=width,
-            dash=dash,
-            tags="warning_highlight",
-        )
     def handle_board_click(event):
         square = pixel_to_square(
             event.x,
@@ -693,7 +731,9 @@ def analyze_board():
         auto_analyze_enabled.get()
         and current_position == last_analyzed_position
     ):
+        draw_warning_highlights()
         status_label.config(text="Watching for board changes...")
+        analysis_in_progress = False
         return
 
     last_analyzed_position = current_position
@@ -779,12 +819,6 @@ def analyze_board():
 }
 
     playing_white = protected_color.get() == "white"
-    your_knight_forks = knight_fork_opportunities(
-    recognized_position,
-    playing_white,
-)
-
-    print("Your knight fork opportunities:", your_knight_forks)
     your_hanging = white_hanging if playing_white else black_hanging
     enemy_hanging = black_hanging if playing_white else white_hanging
     your_attacked = white_attacked if playing_white else black_attacked
@@ -795,26 +829,6 @@ def analyze_board():
 
     danger_lines = []
     opportunity_lines = []
-    for start_square, target_square, attacked_targets in your_knight_forks:
-        target_types = {
-            symbol.lower()
-            for _, symbol in attacked_targets
-        }
-
-        if not target_types.intersection({"k", "q", "r"}):
-            continue
-
-        attacked_names = [
-            piece_names[symbol.lower()]
-            for _, symbol in attacked_targets
-        ]
-
-        opportunity_lines.append(
-            f"FORK AVAILABLE: Knight {start_square} to "
-            f"{target_square} attacks the "
-            f"{' and '.join(attacked_names)}."
-        )
-
     for square_name, symbol in your_hanging:
         danger_lines.append(
             f"DANGER: Your {piece_names[symbol.lower()]} on "
@@ -965,20 +979,6 @@ def analyze_board():
     # The engine runs in the background; visual threat results appear immediately.
     tier_lines = []
 
-    sound_forks = []
-    for fork in your_knight_forks:
-        start_square, target_square, attacked_targets = fork
-        fork_position = make_move(recognized_position, start_square, target_square)
-        destination_safe = target_square not in color_attacks(fork_position, not playing_white)
-        target_value = sum(PIECE_VALUES[symbol.lower()] for _, symbol in attacked_targets)
-        if destination_safe or target_value > PIECE_VALUES["n"]:
-            sound_forks.append(fork)
-
-    if sound_forks:
-        first_fork = sound_forks[0]
-        fork_move = move_name(recognized_position, first_fork[0], first_fork[1])
-        tier_lines.append(f"Tactical line: {fork_move} creates a fork worth examining.")
-
     if your_hanging:
         square_name, symbol = your_hanging[0]
         tier_lines.append(
@@ -1011,36 +1011,47 @@ def analyze_board():
         fg="darkgreen" if thinking_lines else "gray40",
     )
 
-    board_canvas.delete("warning_highlight")
-
-    # Circles mean hanging; square outlines mean attacked but defended.
-    for square_name, _ in your_hanging:
-        mark_piece(square_name, "#ff2d2d", shape="oval", width=5)
-
-    for square_name, _ in enemy_hanging:
-        mark_piece(square_name, "#32cd32", shape="oval", width=5)
-
-    for square_name, _ in your_threatened:
-        mark_piece(square_name, "#ff9f1a", shape="rectangle", width=4, dash=(6, 3))
-
-    for square_name, _ in enemy_threatened:
-        mark_piece(square_name, "#27a9ff", shape="rectangle", width=4, dash=(6, 3))
+    current_warning_highlights = {
+        "your_hanging": [square for square, _ in your_hanging],
+        "enemy_hanging": [square for square, _ in enemy_hanging],
+        "your_threatened": [square for square, _ in your_threatened],
+        "enemy_threatened": [square for square, _ in enemy_threatened],
+    }
+    draw_warning_highlights()
 
     analysis_generation += 1
-    request_stockfish_analysis(
+    queued = request_stockfish_analysis(
         recognized_position,
         playing_white,
         analysis_generation,
     )
-    status_label.config(text="Position ready — Stockfish thinking in background...")
+    status_label.config(
+        text=(
+            "Position ready — Stockfish thinking in background..."
+            if queued
+            else "Position ready — waiting for current Stockfish analysis..."
+        )
+    )
+    analysis_in_progress = False
+
+
+def safe_analyze_board():
+    """Run one scan without allowing an exception to leave the app locked."""
+    global analysis_in_progress
+    try:
+        analyze_board()
+    except Exception as error:
+        analysis_in_progress = False
+        status_label.config(text=f"Analysis error: {error}")
+        print("Analysis error:", error)
 
 
 def auto_analyze_tick():
     if not auto_analyze_enabled.get():
         return
 
-    analyze_board()
-    window.after(2000, auto_analyze_tick)
+    safe_analyze_board()
+    window.after(3500, auto_analyze_tick)
 
 
 def toggle_auto_analyze():
@@ -1258,7 +1269,7 @@ analyze_button = tk.Button(
     controls_frame,
     text="Analyze Board",
     font=("Arial", 11, "bold"),
-    command=analyze_board,
+    command=safe_analyze_board,
     padx=12,
     pady=5,
 )

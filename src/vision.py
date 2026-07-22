@@ -468,6 +468,7 @@ def under_defended_pieces(recognized_position, white):
         "b": 3,
         "r": 5,
         "q": 9,
+        "k": 100,
     }
 
     under_defended = []
