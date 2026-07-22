@@ -1,5 +1,7 @@
 import time
 import tkinter as tk
+import queue
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image, ImageTk
 
@@ -92,7 +94,7 @@ def capture_templates():
 
     window.withdraw()
     window.update()
-    time.sleep(0.4)
+    time.sleep(0.15)
 
     rgb_image = capture_screen()
 
@@ -303,17 +305,27 @@ piece_names_for_tiers = {
 }
 STOCKFISH_PATH = r"C:\Users\joshu\AppData\Local\Microsoft\WinGet\Packages\Stockfish.Stockfish_Microsoft.Winget.Source_8wekyb3d8bbwe\stockfish\stockfish-windows-x86-64-avx2.exe"
 
-def stockfish_top_moves(position, white, count=3):
-    """Return Stockfish's top legal moves for the recognized position."""
-    board = chess.Board(None)
+# Stockfish runs on one background worker so it can never block Tkinter.
+ENGINE_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="stockfish")
+ENGINE_RESULTS = queue.Queue()
+_stockfish_engine = None
+analysis_generation = 0
+latest_opportunity_lines = []
 
+
+def stockfish_top_moves(position, white, count=3):
+    """Return Stockfish's top moves without blocking the interface."""
+    global _stockfish_engine
+
+    board = chess.Board(None)
     for square_name, symbol in position.items():
         try:
-            square = chess.parse_square(square_name)
-            piece = chess.Piece.from_symbol(symbol)
+            board.set_piece_at(
+                chess.parse_square(square_name),
+                chess.Piece.from_symbol(symbol),
+            )
         except (ValueError, TypeError):
             continue
-        board.set_piece_at(square, piece)
 
     board.turn = chess.WHITE if white else chess.BLACK
     board.castling_rights = chess.BB_EMPTY
@@ -331,13 +343,21 @@ def stockfish_top_moves(position, white, count=3):
         return [], "Stalemate — there are no legal moves."
 
     try:
-        with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
-            results = engine.analyse(
-                board,
-                chess.engine.Limit(depth=14),
-                multipv=min(count, legal_count),
-            )
+        if _stockfish_engine is None:
+            _stockfish_engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
+
+        results = _stockfish_engine.analyse(
+            board,
+            chess.engine.Limit(time=0.35),
+            multipv=min(count, legal_count),
+        )
     except (OSError, chess.engine.EngineError, chess.engine.EngineTerminatedError) as error:
+        try:
+            if _stockfish_engine is not None:
+                _stockfish_engine.quit()
+        except Exception:
+            pass
+        _stockfish_engine = None
         return [], f"Stockfish error: {error}"
 
     if isinstance(results, dict):
@@ -350,26 +370,77 @@ def stockfish_top_moves(position, white, count=3):
             continue
 
         move = principal_variation[0]
-        san = board.san(move)
         score = result["score"].pov(board.turn)
-
         mate_in = score.mate()
         if mate_in is not None:
-            evaluation = f"mate in {abs(mate_in)}" if mate_in > 0 else f"mated in {abs(mate_in)}"
+            evaluation = (
+                f"mate in {abs(mate_in)}"
+                if mate_in > 0
+                else f"mated in {abs(mate_in)}"
+            )
         else:
             centipawns = score.score()
-            evaluation = f"{centipawns / 100:+.2f}" if centipawns is not None else "unclear"
+            evaluation = (
+                f"{centipawns / 100:+.2f}"
+                if centipawns is not None
+                else "unclear"
+            )
 
         moves.append({
-            "san": san,
+            "san": board.san(move),
             "uci": move.uci(),
             "evaluation": evaluation,
         })
 
     return moves, None
 
+
+def request_stockfish_analysis(position, white, generation):
+    """Queue one engine job and return immediately."""
+    snapshot = dict(position)
+
+    def run_engine():
+        moves, error = stockfish_top_moves(snapshot, white, count=3)
+        ENGINE_RESULTS.put((generation, moves, error))
+
+    ENGINE_EXECUTOR.submit(run_engine)
+
+
+def poll_engine_results():
+    """Apply completed engine results safely from Tkinter's UI thread."""
+    try:
+        while True:
+            generation, moves, error = ENGINE_RESULTS.get_nowait()
+            if generation != analysis_generation:
+                continue
+
+            engine_lines = []
+            if moves:
+                engine_lines.append("STOCKFISH — TOP 3 MOVES")
+                for index, move in enumerate(moves, start=1):
+                    engine_lines.append(
+                        f"{index}. {move['san']}  ({move['evaluation']})"
+                    )
+            elif error:
+                engine_lines.append(error)
+
+            combined = engine_lines + latest_opportunity_lines
+            opportunity_label.config(
+                text="\n\n".join(combined)
+                if combined
+                else "No immediate opportunity detected.",
+                fg="darkgreen" if combined else "gray40",
+            )
+            status_label.config(text="Position ready — Stockfish updated.")
+    except queue.Empty:
+        pass
+
+    window.after(100, poll_engine_results)
+
+
 def analyze_board():
     global last_analyzed_position, current_mode
+    global analysis_generation, latest_opportunity_lines
 
     returning_from_practice = current_mode == "practice"
     current_mode = "live"
@@ -455,7 +526,7 @@ def analyze_board():
     board_canvas.delete("all")
     board_canvas.create_image(0, 0, anchor="nw", image=board_photo)
     board_canvas.image = board_photo
-    def mark_piece(square_name, outline):
+    def mark_piece(square_name, outline, shape="oval", width=4, dash=None):
         file_index = ord(square_name[0]) - ord("a")
         rank_index = 8 - int(square_name[1])
 
@@ -464,13 +535,19 @@ def analyze_board():
         x2 = x1 + SQUARE_DISPLAY_SIZE - 6
         y2 = y1 + SQUARE_DISPLAY_SIZE - 6
 
-        board_canvas.create_oval(
+        draw = (
+            board_canvas.create_oval
+            if shape == "oval"
+            else board_canvas.create_rectangle
+        )
+        draw(
             x1,
             y1,
             x2,
             y2,
             outline=outline,
-            width=4,
+            width=width,
+            dash=dash,
             tags="warning_highlight",
         )
     def handle_board_click(event):
@@ -689,6 +766,9 @@ def analyze_board():
     print("White hanging pieces:", white_hanging)
     print("Black hanging pieces:", black_hanging)
 
+    white_attacked = attacked_pieces(recognized_position, True)
+    black_attacked = attacked_pieces(recognized_position, False)
+
     piece_names = {
     "p": "pawn",
     "n": "knight",
@@ -707,6 +787,11 @@ def analyze_board():
     print("Your knight fork opportunities:", your_knight_forks)
     your_hanging = white_hanging if playing_white else black_hanging
     enemy_hanging = black_hanging if playing_white else white_hanging
+    your_attacked = white_attacked if playing_white else black_attacked
+    enemy_attacked = black_attacked if playing_white else white_attacked
+
+    your_threatened = [piece for piece in your_attacked if piece not in your_hanging]
+    enemy_threatened = [piece for piece in enemy_attacked if piece not in enemy_hanging]
 
     danger_lines = []
     opportunity_lines = []
@@ -740,6 +825,18 @@ def analyze_board():
         opportunity_lines.append(
             f"OPPORTUNITY: Enemy {piece_names[symbol.lower()]} on "
             f"{square_name} is hanging."
+        )
+
+    for square_name, symbol in your_threatened:
+        danger_lines.append(
+            f"THREAT: Your {piece_names[symbol.lower()]} on {square_name} "
+            "is attacked but defended."
+        )
+
+    for square_name, symbol in enemy_threatened:
+        opportunity_lines.append(
+            f"PRESSURE: Enemy {piece_names[symbol.lower()]} on {square_name} "
+            "is attacked but defended."
         )
 
     if danger_lines:
@@ -865,50 +962,8 @@ def analyze_board():
         else white_under_defended
     )
 
-    for square_name, symbol, attackers in your_under_defended:
-                if (square_name, symbol) in your_hanging:
-                    continue
-                attacker_names = ", ".join(
-            f"{piece_names[attacker_symbol.lower()]} on {attacker_square}"
-            for attacker_square, attacker_symbol in attackers
-        )
-
-                danger_lines.append(
-            f"WARNING: Your {piece_names[symbol.lower()]} on "
-            f"{square_name} is under-defended.\n"
-            f"Attacked by: {attacker_names}"
-        )
-
-    for square_name, symbol, attackers in enemy_under_defended:
-                if (square_name, symbol) in enemy_hanging:
-                    continue
-                attacker_names = ", ".join(
-            f"{piece_names[attacker_symbol.lower()]} on {attacker_square}"
-            for attacker_square, attacker_symbol in attackers
-        )
-
-                opportunity_lines.append(
-            f"TARGET: Enemy {piece_names[symbol.lower()]} on "
-            f"{square_name} is under-defended.\n"
-            f"Attacked by: {attacker_names}"
-        )
-
-    # Ask Stockfish for the three strongest legal moves in the position.
+    # The engine runs in the background; visual threat results appear immediately.
     tier_lines = []
-    engine_moves, engine_error = stockfish_top_moves(
-        recognized_position,
-        playing_white,
-        count=3,
-    )
-
-    if engine_moves:
-        tier_lines.append("STOCKFISH — TOP 3 MOVES")
-        for index, move in enumerate(engine_moves, start=1):
-            tier_lines.append(
-                f"{index}. {move['san']}  ({move['evaluation']})"
-            )
-    elif engine_error:
-        tier_lines.append(engine_error)
 
     sound_forks = []
     for fork in your_knight_forks:
@@ -938,6 +993,7 @@ def analyze_board():
         )
 
     opportunity_lines = tier_lines + opportunity_lines
+    latest_opportunity_lines = list(opportunity_lines)
 
     danger_label.config(
         text="\n\n".join(danger_lines)
@@ -946,23 +1002,39 @@ def analyze_board():
         fg="darkred" if danger_lines else "darkgreen",
     )
 
+    # Show tactical information now, then prepend Stockfish when it finishes.
+    thinking_lines = ["STOCKFISH — THINKING..."] + opportunity_lines
     opportunity_label.config(
-        text="\n\n".join(opportunity_lines)
-        if opportunity_lines
+        text="\n\n".join(thinking_lines)
+        if thinking_lines
         else "No immediate opportunity detected.",
-        fg="darkgreen" if opportunity_lines else "gray40",
+        fg="darkgreen" if thinking_lines else "gray40",
     )
+
     board_canvas.delete("warning_highlight")
 
+    # Circles mean hanging; square outlines mean attacked but defended.
     for square_name, _ in your_hanging:
-        mark_piece(square_name, "red")
+        mark_piece(square_name, "#ff2d2d", shape="oval", width=5)
 
     for square_name, _ in enemy_hanging:
-        mark_piece(square_name, "green")
+        mark_piece(square_name, "#32cd32", shape="oval", width=5)
 
-    for square_name, symbol, _ in your_under_defended:
-        if (square_name, symbol) not in your_hanging:
-            mark_piece(square_name, "orange")
+    for square_name, _ in your_threatened:
+        mark_piece(square_name, "#ff9f1a", shape="rectangle", width=4, dash=(6, 3))
+
+    for square_name, _ in enemy_threatened:
+        mark_piece(square_name, "#27a9ff", shape="rectangle", width=4, dash=(6, 3))
+
+    analysis_generation += 1
+    request_stockfish_analysis(
+        recognized_position,
+        playing_white,
+        analysis_generation,
+    )
+    status_label.config(text="Position ready — Stockfish thinking in background...")
+
+
 def auto_analyze_tick():
     if not auto_analyze_enabled.get():
         return
@@ -1148,7 +1220,18 @@ board_canvas = tk.Canvas(
     highlightthickness=2,
     highlightbackground="gray35",
 )
-board_canvas.pack(pady=(2, 5))
+board_canvas.pack(pady=(2, 3))
+
+legend_label = tk.Label(
+    window,
+    text=(
+        "○ Red: your hanging   ○ Green: enemy hanging   "
+        "□ Orange: your threatened   □ Blue: enemy threatened"
+    ),
+    font=("Arial", 8),
+    fg="gray30",
+)
+legend_label.pack(pady=(0, 4))
 
 status_frame = tk.Frame(window, height=38)
 status_frame.pack_propagate(False)
@@ -1301,4 +1384,5 @@ opportunity_label = tk.Label(
 )
 opportunity_label.pack(fill="x", anchor="w")
 
+poll_engine_results()
 window.mainloop()

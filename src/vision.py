@@ -377,46 +377,38 @@ def available_captures(recognized_position, white):
 
     return captures
 def attacked_pieces(recognized_position, white):
+    """Return every non-king piece of the chosen color currently attacked."""
     attacked = []
-
-    opponent_attacks = color_attacks(
-        recognized_position,
-        not white,
-    )
-def hanging_pieces(recognized_position, white):
-    hanging = []
-
-    enemy_attacks = color_attacks(
-        recognized_position,
-        not white,
-    )
-
-    friendly_defenses = color_attacks(
-        recognized_position,
-        white,
-    )
+    opponent_attacks = color_attacks(recognized_position, not white)
 
     for square_name, symbol in recognized_position.items():
         if symbol.isupper() != white:
             continue
         if symbol.lower() == "k":
             continue
-        if (
-            square_name in enemy_attacks
-            and square_name not in friendly_defenses
-        ):
-            hanging.append((square_name, symbol))
-
-    return hanging
-
-    for square_name, symbol in recognized_position.items():
-        if symbol.isupper() != white:
-            continue
-
         if square_name in opponent_attacks:
             attacked.append((square_name, symbol))
 
     return attacked
+
+
+def hanging_pieces(recognized_position, white):
+    """Return attacked pieces that are not defended by their own side."""
+    hanging = []
+    enemy_attacks = color_attacks(recognized_position, not white)
+    friendly_defenses = color_attacks(recognized_position, white)
+
+    for square_name, symbol in recognized_position.items():
+        if symbol.isupper() != white:
+            continue
+        if symbol.lower() == "k":
+            continue
+        if square_name in enemy_attacks and square_name not in friendly_defenses:
+            hanging.append((square_name, symbol))
+
+    return hanging
+
+
 def knight_fork_opportunities(recognized_position, white):
     valuable_targets = {"n", "b", "r", "q", "k"}
     forks = []
